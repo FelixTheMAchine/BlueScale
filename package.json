@@ -19,7 +19,8 @@
     "postinstall": "prisma generate",
     "test:mobile": "node --test tests/mobile.node.mjs",
     "test:security": "node --test tests/security.node.mjs",
-    "test:release": "node --experimental-strip-types --test tests/release.node.mjs"
+    "test:release": "node --experimental-strip-types --test tests/release.node.mjs",
+    "db:bootstrap": "tsx prisma/bootstrap.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

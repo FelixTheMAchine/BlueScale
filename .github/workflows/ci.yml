@@ -35,6 +35,10 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Aplicar migrações
         run: npx prisma migrate deploy
+      - name: Inicializar administrador em banco vazio (idempotência)
+        run: |
+          npm run db:bootstrap
+          npm run db:bootstrap
       - name: Criar dados de teste
         run: npm run db:seed
       - name: Sintaxe, tipos, testes e build

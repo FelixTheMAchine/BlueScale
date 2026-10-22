@@ -1,6 +1,6 @@
 # BlueScale DAs — sistema colaborativo para escalas universitárias
 
-**Versão:** `1.0.0-rc.1` · **Status:** código implementado, **não aprovado para produção** até passar build, banco real, E2E e testes Android.
+**Versão:** `1.0.0-rc.1` · **Status:** build e testes integrados em PostgreSQL passaram no GitHub Actions; publicação do backend e testes em produção ainda pendentes.
 
 O BlueScale é um aplicativo **mobile-first** que centraliza membros, eventos, turnos e escalas em PostgreSQL. Usuários em **celulares diferentes** acessam o mesmo servidor HTTPS com login individual. O projeto foi desenhado para a Gestão de Pessoas operar sem conhecimentos técnicos. Identidade azul elétrico/preto com logo exclusiva e assinatura **DAs**.
 
@@ -39,7 +39,7 @@ O solver Python é **opcional**. Sem ele, o algoritmo TypeScript determinístico
 
 ### Primeiro lançamento com banco vazio
 
-Em hospedagem de produção, rode `prisma migrate deploy` após configurar `DATABASE_URL` e `NEXTAUTH_SECRET`. Em seguida execute `NODE_ENV=production npm run db:seed` com ADMIN_EMAIL e ADMIN_PASSWORD. Em produção, este comando cria/atualiza **só o admin**; os 60 membros DEMO nunca são adicionados, exceto se a variável excepcional `ALLOW_DEMO_SEED=YES_I_UNDERSTAND` for configurada expressamente. Não use `prisma migrate reset` numa base com dados reais.
+Em hospedagem de produção, rode `prisma migrate deploy` após configurar `DATABASE_URL` e `NEXTAUTH_SECRET`. O contêiner executa automaticamente `db:bootstrap` na inicialização, **somente quando ainda não houver administrador**. Configure `ADMIN_EMAIL` e `ADMIN_PASSWORD` privados antes de iniciar; a rotina não cria dados fictícios nem redefine senhas após a primeira criação. Em produção, este comando cria/atualiza **só o admin**; os 60 membros DEMO nunca são adicionados, exceto se a variável excepcional `ALLOW_DEMO_SEED=YES_I_UNDERSTAND` for configurada expressamente. Não use `prisma migrate reset` numa base com dados reais.
 
 ### APK Android
 
@@ -99,3 +99,7 @@ Mantenha segredos fora do repositório, PostgreSQL com backups automáticos e TL
 ## Demonstração web no GitHub Pages
 
 Após ativar Pages (Settings → Pages → Source: GitHub Actions), o workflow publica apenas a demonstração em [BlueScale DAs Web](https://felixthemachine.github.io/BlueScale/). **Dados permanecem no dispositivo e não sincronizam.** O [guia de hospedagem e privacidade](docs/HOSPEDAGEM-E-PRIVACIDADE.md) explica como hospedar a versão colaborativa de modo seguro.
+
+### Publicação no Railway
+
+O arquivo [`railway.json`](railway.json) utiliza o `Dockerfile` e `GET /api/health` como healthcheck. No Railway, crie um PostgreSQL privado, conecte-o ao serviço web com referência de variável `DATABASE_URL`, e configure `NEXTAUTH_URL` (domínio HTTPS), `NEXTAUTH_SECRET` (32+ caracteres), `ADMIN_EMAIL` e `ADMIN_PASSWORD` (12+ caracteres) sem colocar nada no GitHub. O contêiner executa migrations e um bootstrap de administrador **idempotente** quando começa; não é necessário terminal pelo celular. Veja [guia de hospedagem](docs/HOSPEDAGEM-E-PRIVACIDADE.md).
