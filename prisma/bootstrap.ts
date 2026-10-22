@@ -50,6 +50,36 @@ async function main() {
       throw new Error('Identificador admin reservado já está sendo usado por outra conta.');
     }
   }
+  // Conta de consulta exclusiva: sem acesso à GP, rascunhos ou ações de escrita.
+  // Provisionada uma única vez, depois a variável pode ser desativada.
+  const viewerSecret = process.env.INITIAL_VIEWER_PASSWORD;
+  if (process.env.ENABLE_INITIAL_VIEWER === 'true') {
+    if (!viewerSecret || viewerSecret.length < 16 || viewerSecret.length > 128) {
+      throw new Error('INITIAL_VIEWER_PASSWORD deve ter 16 a 128 caracteres.');
+    }
+    const viewerEmail = 'consulta@accounts.bluescale.invalid';
+    const existingViewer = await db.user.findFirst({
+      where: { OR: [{ username: 'consulta' }, { email: viewerEmail }] },
+      select: { username: true, role: true },
+    });
+    if (!existingViewer) {
+      await db.user.create({
+        data: {
+          name: 'Consulta BlueScale',
+          username: 'consulta',
+          email: viewerEmail,
+          role: 'VIEWER',
+          passwordHash: await bcrypt.hash(viewerSecret, 12),
+        },
+      });
+      console.log('Bootstrap: conta consulta (somente leitura) criada.');
+    } else if (existingViewer.username === 'consulta' && existingViewer.role === 'VIEWER') {
+      console.log('Bootstrap: conta consulta já existe; senha mantida.');
+    } else {
+      throw new Error('Identificador consulta reservado já existe com papel incorreto.');
+    }
+  }
+
 }
 
 main().catch(e => { console.error(e); process.exitCode = 1; }).finally(() => db.$disconnect());
