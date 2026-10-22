@@ -16,18 +16,18 @@ on:
         options:
           - demo-offline
           - online
-        default: demo-offline
+        default: online
 
 permissions:
   contents: read
 
 jobs:
   android:
-    name: Compilar APK (${{ inputs.edition || 'demo-offline' }})
+    name: Compilar APK (${{ inputs.edition || 'online' }})
     runs-on: ubuntu-latest
     env:
-      EDITION: ${{ inputs.edition || 'demo-offline' }}
-      BLUESCALE_URL: ${{ vars.BLUESCALE_URL }}
+      EDITION: ${{ inputs.edition || 'online' }}
+      BLUESCALE_URL: ${{ vars.BLUESCALE_URL || 'https://bluescale-das-online.onrender.com' }}
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -51,7 +51,19 @@ jobs:
             echo 'ERRO: Configure Settings > Secrets and variables > Actions > Variables > BLUESCALE_URL com seu domínio HTTPS público.'
             exit 1
           fi
-          curl --fail --silent --show-error --max-time 20 "$BLUESCALE_URL/api/health"
+          # O Render gratuito pode suspender por inatividade; aguarde cold start.
+          ok=0
+          for attempt in 1 2 3; do
+            if curl --fail --silent --show-error --connect-timeout 15 --max-time 100 "$BLUESCALE_URL/api/health" | grep -q '"status":"ok"'; then
+              ok=1
+              break
+            fi
+            sleep 10
+          done
+          if [[ "$ok" -ne 1 ]]; then
+            echo 'ERRO: BlueScale HTTPS /api/health indisponível. APK online não será publicado.'
+            exit 1
+          fi
       - name: Gerar APK demonstrativo local
         if: env.EDITION == 'demo-offline'
         working-directory: android-app
