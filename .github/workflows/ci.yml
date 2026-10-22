@@ -77,3 +77,13 @@ jobs:
           python-version: '3.12'
       - run: pip install -r solver-service/requirements.txt pytest
       - run: python -m pytest solver-service/tests -q
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar imagem Docker sem credenciais reais
+        run: docker build --progress=plain -t bluescale-ci .
+      - name: Verificar que banco de dados não ficou gravado na imagem
+        run: |
+          docker image inspect bluescale-ci --format '{{json .Config.Env}}' | python3 -c "import sys,json; e=json.load(sys.stdin); assert not any(x.startswith('DATABASE_URL=') for x in e), 'Banco gravado na imagem'"
