@@ -7,15 +7,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role { ADMIN PEOPLE EVENT_COORDINATOR MEMBER }
-enum MemberStatus { ACTIVE INACTIVE LEAVE }
-enum Commute { NEAR MEDIUM FAR }
-enum EventStatus { PLANNING OPEN GENERATED PUBLISHED COMPLETED CANCELLED }
-enum ScheduleStatus { DRAFT PUBLISHED ARCHIVED }
-enum ConfirmationStatus { PENDING CONFIRMED DECLINED }
-enum SwapStatus { PENDING APPROVED REJECTED CANCELLED }
-enum AttendanceStatus { PRESENT ABSENT LATE }
-
+enum Role {
+  ADMIN
+  PEOPLE
+  EVENT_COORDINATOR
+  MEMBER
+}
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  LEAVE
+}
+enum Commute {
+  NEAR
+  MEDIUM
+  FAR
+}
+enum EventStatus {
+  PLANNING
+  OPEN
+  GENERATED
+  PUBLISHED
+  COMPLETED
+  CANCELLED
+}
+enum ScheduleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+enum ConfirmationStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+enum SwapStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
 model User {
   id           String @id @default(cuid())
   name         String
