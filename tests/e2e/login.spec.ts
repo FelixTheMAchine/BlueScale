@@ -26,11 +26,11 @@ test('portal de consulta usa login separado e bloqueia operações da GP',async(
  await page.context().clearCookies();
  await page.goto('/login');
  await page.getByRole('link',{name:/Entrar como membro/i}).click();
- await expect(page).toHaveURL(/\\/login\\/membros/);
+  await expect(page).toHaveURL(/login.membros/);
  await page.getByLabel('E-mail ou usuário').fill('visitante_e2e');
  await page.getByLabel('Senha').fill('ConsultaSuperSeguraE2E123!');
  await page.getByRole('button',{name:'Consultar escalas publicadas'}).click();
- await expect(page).toHaveURL(/\\/publicadas$/);
+  await expect(page).toHaveURL(/publicadas$/);
  await expect(page.getByRole('heading',{name:'Escalas publicadas'})).toBeVisible();
  await expect(page.getByRole('button',{name:/Criar evento|Publicar escala/})).toHaveCount(0);
 
@@ -40,5 +40,5 @@ test('portal de consulta usa login separado e bloqueia operações da GP',async(
  const unpublished=await page.request.get('/api/publicadas/nao-existe/excel');
  expect(unpublished.status()).toBe(404);
  await page.goto('/eventos');
- await expect(page).toHaveURL(/\\/publicadas$/);
+  await expect(page).toHaveURL(/publicadas$/);
 });
