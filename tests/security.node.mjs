@@ -40,3 +40,22 @@ test('trocas usam revisão da escala publicada mesmo havendo rascunho',()=>{
  assert.match(read('src/components/swap-admin.tsx'),/view=published/);
  assert.match(read('src/app/api/events/[id]/schedule/route.ts'),/EVENT_COORDINATOR/);
 });
+
+test('consultas de membros não têm acesso a rascunhos ou rotas de escrita',()=>{
+ const api=read('src/lib/api.ts');
+ assert.doesNotMatch(api.match(/export const ALL=\\[[^;]+;/)?.[0]||'','VIEWER');
+ const auth=read('src/lib/auth.ts');
+ assert.match(auth,/user\\.role === 'VIEWER'/);
+ assert.match(auth,/portal === 'members'/);
+ const view=read('src/app/publicadas/page.tsx');
+ assert.match(view,/status: 'PUBLISHED'/);
+ const detail=read('src/app/publicadas/[id]/page.tsx');
+ assert.match(detail,/status:'PUBLISHED'/);
+ for(const path of ['src/app/api/publicadas/[id]/excel/route.ts','src/app/api/publicadas/[id]/csv/route.ts']) {
+  const src=read(path);
+  assert.match(src,/requireRole\\(\\['VIEWER'\\]\\)/);
+  assert.match(src,/status:'PUBLISHED'/);
+  assert.match(src,/Cache-Control/);
+  assert.doesNotMatch(src,/export async function POST|export async function PATCH|export async function PUT|export async function DELETE/);
+ }
+});

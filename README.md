@@ -103,3 +103,9 @@ Após ativar Pages (Settings → Pages → Source: GitHub Actions), o workflow p
 ### Publicação no Railway
 
 O arquivo [`railway.json`](railway.json) utiliza o `Dockerfile` e `GET /api/health` como healthcheck. No Railway, crie um PostgreSQL privado, conecte-o ao serviço web com referência de variável `DATABASE_URL`, e configure `NEXTAUTH_URL` (domínio HTTPS), `NEXTAUTH_SECRET` (32+ caracteres), `ADMIN_EMAIL` e `ADMIN_PASSWORD` (12+ caracteres) sem colocar nada no GitHub. O contêiner executa migrations e um bootstrap de administrador **idempotente** quando começa; não é necessário terminal pelo celular. Veja [guia de hospedagem](docs/HOSPEDAGEM-E-PRIVACIDADE.md).
+
+## Login `admin` e Portal de Membros (Consulta)
+- **Gestão:** entrar por `/login` com e-mail ou nome de usuário. O administrador inicial continua ativo. É possível criar um segundo administrador com usuário literal `admin` e senha própria, provisionada UMA VEZ pela variável privada `UNIVERSAL_ADMIN_PASSWORD` de 16+ caracteres no Render. Depois do primeiro deploy, remova/esvazie essa variável; não use senha padrão em repositório público.
+- **Membros só leitura:** botão **Entrar como membro** no login leva a `/login/membros`. O administrador cria acessos com permissão **Consulta — só escalas publicadas** (`VIEWER`), com usuário e senha próprios, em **Acessos**.
+- **Publicações:** `/publicadas` e `/publicadas/[id]` mostram apenas versões publicadas, com links para XLSX/CSV, sem expor rascunhos, telefones ou endereços particulares. A verificação no servidor bloqueia todas as rotas de edição/geração/publicação para `VIEWER`, inclusive por requisição direta. O próprio usuário pode alterar sua senha.
+- **Privacidade:** não use senha compartilhada entre todos os membros; crie contas individuais, bloqueie acessos quando necessário e não publique planilhas reais na pasta pública `demo/`.
