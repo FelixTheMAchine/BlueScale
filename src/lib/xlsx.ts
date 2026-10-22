@@ -39,7 +39,7 @@ export async function makeWorkbook(event:EventReport,version:Version,stats:{tota
  const byMember=[...unique].map(id=>{const rows=assignments.filter(a=>a.memberId===id),m=rows[0].member;return [m.fullName,m.department.name,rows.map(r=>`${time(r.shift.startsAt)}: ${r.shift.workstation.name}`).join(' | '),rows.reduce((n,a)=>n+duration(a.shift.startsAt,a.shift.endsAt),0)] as (string|number)[]});
  sheet('Escala por Pessoa',['Membro','Diretoria','Turnos','Total (min)'],byMember);
  const posto=sheet('Escala por Posto',['Posto','Início','Fim','Mínimo','Alocados','Responsável'],event.shifts.map(s=>[s.workstation.name,time(s.startsAt),time(s.endsAt),s.minPeople,assignments.filter(a=>a.shiftId===s.id).length,'Gestão de Pessoas']));
- if(event.shifts.length)posto.addConditionalFormatting({ref:`E4:E${3+event.shifts.length}`,rules:[{type:'expression',formulae:['E4<D4'],style:{fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFE5E5'}}}}]});
+ if(event.shifts.length)posto.addConditionalFormatting({ref:`E4:E${3+event.shifts.length}`,rules:[{type:'expression',priority:1,formulae:['E4<D4'],style:{fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFE5E5'}}}}]});
  const uncovered=event.shifts.filter(s=>assignments.filter(a=>a.shiftId===s.id).length<s.minPeople);
  sheet('Pendências',['Posto','Início','Mínimo','Alocados','Situação'],uncovered.map(s=>[s.workstation.name,time(s.startsAt),s.minPeople,assignments.filter(a=>a.shiftId===s.id).length,'Cobertura insuficiente']));
  const buffer=await wb.xlsx.writeBuffer();return buffer;

@@ -8,7 +8,7 @@ const str=(x:unknown)=>String(x??'').trim();
 export async function POST(req:NextRequest){try{const u=await requireRole(STAFF);sameOrigin(req);const data=await req.formData();const f=data.get('file');if(!(f instanceof File))throw new HttpError(400,'Arquivo ausente.');if(f.size>1_500_000)throw new HttpError(413,'Máximo de 1,5 MB.');
  let records: string[][]=[];
  if(f.name.toLowerCase().endsWith('.csv')){const text=(await f.text()).replace(/^\uFEFF/,'');records=parseCsv(text);}
- else if(f.name.toLowerCase().endsWith('.xlsx')){const wb=new ExcelJS.Workbook();await wb.xlsx.load(Buffer.from(await f.arrayBuffer()));const ws=wb.worksheets[0];if(!ws)throw new HttpError(400,'Planilha vazia.');ws.eachRow(r=>records.push([1,2,3,4].map(i=>str(r.getCell(i).text))));}
+ else if(f.name.toLowerCase().endsWith('.xlsx')){const wb=new ExcelJS.Workbook();await wb.xlsx.load(Buffer.from(await f.arrayBuffer()) as unknown as Parameters<typeof wb.xlsx.load>[0]);const ws=wb.worksheets[0];if(!ws)throw new HttpError(400,'Planilha vazia.');ws.eachRow(r=>records.push([1,2,3,4].map(i=>str(r.getCell(i).text))));}
  else throw new HttpError(400,'Envie CSV ou XLSX.');
  // Colunas: identificador,nome,email,diretoria. Cabeçalho opcional.
  if(records.length&&/identificador|matr[ií]cula/i.test(records[0][0]))records=records.slice(1);

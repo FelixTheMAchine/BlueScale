@@ -64,7 +64,7 @@ function preferenceCost(m: MemberInput, s: SlotInput, slots: SlotInput[], assign
 export function generateSchedule(members: MemberInput[], slots: SlotInput[], rules: Rules, locked: AssignmentInput[] = []): SolveResult {
  const errors = validateSchedule(members,slots,rules,locked);
  if (errors.length) throw new Error(`Atribuições travadas inválidas: ${errors.join('; ')}`);
- const assigned = locked.map(a=>({...a, locked:true}));
+ const assigned: AssignmentInput[] = locked.map(a=>({...a, locked:true}));
  const candidates = (s:SlotInput) => members.filter(m=>baseEligible(m,s));
  const ordered = [...slots].sort((a,b) => candidates(a).length - candidates(b).length || (b.priority||0) - (a.priority||0) || a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
  const fill = (ideal:boolean) => {
