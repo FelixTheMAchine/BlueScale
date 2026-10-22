@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { fail, HttpError, jsonBody, ok, requireRole } from '@/lib/api';
-const schema=z.object({role:z.enum(['ADMIN','PEOPLE','EVENT_COORDINATOR','MEMBER']).optional(),password:z.string().min(12).max(128).optional()}).strict().refine(s=>s.role!==undefined||s.password!==undefined);
+const schema=z.object({role:z.enum(['ADMIN','PEOPLE','EVENT_COORDINATOR','MEMBER','VIEWER']).optional(),password:z.string().min(12).max(128).optional()}).strict().refine(s=>s.role!==undefined||s.password!==undefined);
 export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}>}){try{const actor=await requireRole(['ADMIN']);const {id}=await params;const data=schema.parse(await jsonBody(req));if(id===actor.id&&data.role&&data.role!=='ADMIN')throw new HttpError(409,'Não retire sua própria permissão de administrador.');
  const user=await prisma.$transaction(async tx=>{
   const old=await tx.user.findUnique({where:{id}});if(!old)throw new HttpError(404,'Usuário não encontrado.');

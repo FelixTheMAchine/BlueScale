@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { ALL, fail, HttpError, jsonBody, ok, requireRole } from '@/lib/api';
 export async function POST(req:NextRequest){try{
- const actor=await requireRole(ALL);
+ const actor=await requireRole([...ALL,'VIEWER']);
  const {currentPassword,newPassword}=z.object({currentPassword:z.string(),newPassword:z.string().min(12).max(128)}).parse(await jsonBody(req));
  if(currentPassword===newPassword)throw new HttpError(400,'Escolha uma senha diferente da atual.');
  const user=await prisma.user.findUnique({where:{id:actor.id}});

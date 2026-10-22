@@ -12,6 +12,7 @@ enum Role {
   PEOPLE
   EVENT_COORDINATOR
   MEMBER
+  VIEWER
 }
 enum MemberStatus {
   ACTIVE
@@ -56,6 +57,7 @@ model User {
   id           String @id @default(cuid())
   name         String
   email        String @unique
+  username     String? @unique
   passwordHash String
   role         Role @default(MEMBER)
   memberId     String? @unique

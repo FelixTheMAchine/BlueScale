@@ -3,41 +3,53 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const db = new PrismaClient();
+const RESERVED_EMAIL = 'admin@accounts.bluescale.invalid';
 
 async function main() {
-  // NUNCA altera a senha de administradores existentes a cada reinicialização.
-  const existingAdmin = await db.user.findFirst({
-    where: { role: 'ADMIN' },
-    select: { id: true },
-  });
-  if (existingAdmin) {
-    console.log('Bootstrap: administrador existente; nenhum dado alterado.');
-    return;
+  const existingAdmin = await db.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+  if (!existingAdmin) {
+    const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const password = process.env.ADMIN_PASSWORD;
+    if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      throw new Error('Configure ADMIN_EMAIL válido para a primeira conta.');
+    }
+    if (!password || password.length < 12) throw new Error('Configure ADMIN_PASSWORD (12+ caracteres).');
+    await db.user.create({
+      data: { name: 'Administração BlueScale', email, passwordHash: await bcrypt.hash(password, 12), role: 'ADMIN' },
+    });
+    console.log('Bootstrap: primeira conta administrativa criada.');
+  } else {
+    console.log('Bootstrap: administrador existente mantido.');
   }
 
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.ADMIN_PASSWORD;
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error('Defina ADMIN_EMAIL válido nas variáveis privadas do serviço.');
+  // Novo administrador universal. Gerado uma única vez e nunca redefine senha
+  // em reinicializações posteriores. Variável temporária deve ser apagada depois.
+  const universalPassword = process.env.UNIVERSAL_ADMIN_PASSWORD;
+  if (universalPassword) {
+    if (universalPassword.length < 16 || universalPassword.length > 128) {
+      throw new Error('UNIVERSAL_ADMIN_PASSWORD exige 16 a 128 caracteres.');
+    }
+    const existing = await db.user.findFirst({
+      where: { OR: [{ username: 'admin' }, { email: RESERVED_EMAIL }] },
+      select: { username: true, role: true },
+    });
+    if (!existing) {
+      await db.user.create({
+        data: {
+          name: 'Administrador Universal',
+          email: RESERVED_EMAIL,
+          username: 'admin',
+          passwordHash: await bcrypt.hash(universalPassword, 12),
+          role: 'ADMIN',
+        },
+      });
+      console.log('Bootstrap: login admin criado com permissão universal; nenhuma conta anterior foi alterada.');
+    } else if (existing.username === 'admin' && existing.role === 'ADMIN') {
+      console.log('Bootstrap: login admin já existe; senha preservada.');
+    } else {
+      throw new Error('Identificador admin reservado já está sendo usado por outra conta.');
+    }
   }
-  if (!password || password.length < 12 || password === 'INSIRA_SENHA_FORTE_AQUI_12+') {
-    throw new Error('Defina ADMIN_PASSWORD segura (12 ou mais caracteres) nas variáveis privadas do serviço.');
-  }
-  if (await db.user.findUnique({ where: { email }, select: { id: true } })) {
-    throw new Error('Já existe um usuário com ADMIN_EMAIL sem perfil de administrador; configure outra conta.');
-  }
-
-  await db.user.create({
-    data: {
-      name: 'Administração BlueScale',
-      email,
-      passwordHash: await bcrypt.hash(password, 12),
-      role: 'ADMIN',
-    },
-  });
-  console.log('Bootstrap: conta inicial de administração criada; base sem dados fictícios.');
 }
 
-main()
-  .catch((error) => { console.error(error); process.exitCode = 1; })
-  .finally(() => db.$disconnect());
+main().catch(e => { console.error(e); process.exitCode = 1; }).finally(() => db.$disconnect());
