@@ -42,6 +42,7 @@ export async function Shell({children}:{children:React.ReactNode}){
   {href:'/',label:'Início',icon:LayoutDashboard},
   {href:'/eventos',label:'Eventos',icon:CalendarDays},
   canManage?{href:'/membros',label:'Equipe',icon:Users}:session.user.memberId?{href:'/minha-escala',label:'Turnos',icon:UserRound}:{href:'/ajuda',label:'Ajuda',icon:CircleHelp},
+  ...(session.user.role==='ADMIN'?[{href:'/usuarios',label:'Acessos',icon:KeyRound}]:[]),
   {href:'/ajuda',label:'Ajuda',icon:CircleHelp}
  ].filter((link,index,all)=>all.findIndex(candidate=>candidate.href===link.href)===index);
  return <div className="min-h-screen lg:flex">
