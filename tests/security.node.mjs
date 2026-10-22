@@ -60,3 +60,19 @@ test('consultas de membros não têm acesso a rascunhos ou rotas de escrita',()=
   assert.doesNotMatch(src,/export async function POST|export async function PATCH|export async function PUT|export async function DELETE/);
  }
 });
+
+test('catálogo de diretorias existe em banco de produção sem membros fictícios',()=>{
+ const bootstrap=read('prisma/bootstrap.ts');
+ assert.match(bootstrap,/db\.department\.count\(\)/);
+ assert.match(bootstrap,/db\.department\.upsert/);
+ assert.match(bootstrap,/Gestão de Pessoas/);
+ const routes=read('src/app/api/departments/route.ts');
+ assert.match(routes,/requireRole\(STAFF\)/);
+ assert.match(routes,/jsonBody\(req\)/);
+ assert.match(routes,/auditLog\.create/);
+ const screen=read('src/components/members-client.tsx');
+ assert.match(screen,/Nova diretoria/);
+ assert.match(screen,/createDepartment/);
+ assert.match(screen,/Carregando diretorias/);
+ assert.match(screen,/loadDepartments/);
+});

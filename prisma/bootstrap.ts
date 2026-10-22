@@ -22,6 +22,30 @@ async function main() {
     console.log('Bootstrap: administrador existente mantido.');
   }
 
+  // Catálogo real de diretorias; cadastro inicial sem membros, eventos ou escalas fictícios.
+  // Só preenche se nenhuma diretoria foi configurada. Não altera catálogos já existentes.
+  if ((await db.department.count()) === 0) {
+    const defaultDepartments = [
+      'Gestão de Pessoas',
+      'Eventos',
+      'Financeiro',
+      'Publicidade',
+      'E-sports',
+      'DGE',
+      'Presidência',
+    ];
+    for (const name of defaultDepartments) {
+      await db.department.upsert({
+        where: { name },
+        update: {},
+        create: { name },
+      });
+    }
+    console.log('Bootstrap: catálogo inicial de diretorias disponível; nenhum membro fictício criado.');
+  } else {
+    console.log('Bootstrap: diretorias existentes preservadas.');
+  }
+
   // Novo administrador universal. Gerado uma única vez e nunca redefine senha
   // em reinicializações posteriores. Variável temporária deve ser apagada depois.
   const universalPassword = process.env.UNIVERSAL_ADMIN_PASSWORD;
