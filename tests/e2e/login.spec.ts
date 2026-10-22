@@ -42,3 +42,25 @@ test('portal de consulta usa login separado e bloqueia operações da GP',async(
  await page.goto('/eventos');
   await expect(page).toHaveURL(/publicadas$/);
 });
+
+test('cadastro de membros carrega diretorias e permite incluir uma nova', async ({page}) => {
+ test.skip(!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD, 'Precisa da conta admin no banco de testes');
+ await page.goto('/login');
+ await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
+ await page.getByLabel('Senha').fill(process.env.ADMIN_PASSWORD!);
+ await page.getByRole('button',{name:'Entrar no BlueScale'}).click();
+ await expect(page.getByText('Uma escala mais justa.')).toBeVisible();
+
+ await page.goto('/membros');
+ await page.getByRole('button',{name:'Novo membro'}).click();
+ const select=page.getByLabel('Diretoria *');
+ await expect(select).toBeVisible();
+ await expect(select.locator('option')).not.toHaveCount(1);
+ await expect(select.locator('option',{hasText:'Gestão de Pessoas'})).toHaveCount(1);
+
+ await page.getByRole('button',{name:'Nova diretoria'}).click();
+ await page.getByRole('textbox',{name:'Nome da nova diretoria'}).fill('Operações E2E');
+ await page.getByRole('button',{name:'Adicionar',exact:true}).click();
+ await expect(select.locator('option',{hasText:'Operações E2E'})).toHaveCount(1);
+ await expect(select).not.toHaveValue('');
+});
