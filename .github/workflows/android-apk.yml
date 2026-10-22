@@ -1,0 +1,71 @@
+name: BlueScale DAs - APK Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android-app/**'
+      - 'android-live/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: 'Qual APK compilar?'
+        required: true
+        type: choice
+        default: demo-offline
+        options: [demo-offline, online]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      EDITION: ${{ inputs.edition || 'demo-offline' }}
+      BLUESCALE_URL: ${{ vars.BLUESCALE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Verify Android source exists
+        run: |
+          test -f android-app/app/build.gradle
+          test -f android-live/app/build.gradle
+      - name: Verify online backend
+        if: env.EDITION == 'online'
+        run: |
+          if [[ ! "$BLUESCALE_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{2,5})?(/.*)?$ ]]; then
+            echo "Configure an HTTPS BLUESCALE_URL repository Actions variable first."
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 20 "$BLUESCALE_URL/api/health"
+      - name: Build demo APK
+        if: env.EDITION == 'demo-offline'
+        working-directory: android-app
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Build online APK
+        if: env.EDITION == 'online'
+        working-directory: android-live
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Upload offline demo
+        if: env.EDITION == 'demo-offline'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlueScale-DAs-APK-Demo-Offline
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Upload online app
+        if: env.EDITION == 'online'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlueScale-DAs-APK-Online
+          path: android-live/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
