@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const schema=fs.readFileSync('prisma/schema.prisma','utf8');
+const migrations=fs.readdirSync('prisma/migrations',{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>fs.readFileSync(`prisma/migrations/${x.name}/migration.sql`,'utf8'));
+const migration=migrations.join('\n');
+const tables=[...schema.matchAll(/^model\s+(\w+)\s*\{/gm)].map(m=>m[1]);
+for(const t of tables)assert.ok(migration.includes(`CREATE TABLE "${t}"`),`Falta tabela ${t} na migration`);
+const enums=[...schema.matchAll(/^enum\s+(\w+)\s*\{/gm)].map(m=>m[1]);
+for(const e of enums)assert.ok(migration.includes(`CREATE TYPE "${e}"`),`Falta enum ${e} na migration`);
+console.log(`${tables.length} modelos e ${enums.length} enums encontrados no schema e no SQL.`);

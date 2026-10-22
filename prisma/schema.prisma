@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role { ADMIN PEOPLE EVENT_COORDINATOR MEMBER }
+enum MemberStatus { ACTIVE INACTIVE LEAVE }
+enum Commute { NEAR MEDIUM FAR }
+enum EventStatus { PLANNING OPEN GENERATED PUBLISHED COMPLETED CANCELLED }
+enum ScheduleStatus { DRAFT PUBLISHED ARCHIVED }
+enum ConfirmationStatus { PENDING CONFIRMED DECLINED }
+enum SwapStatus { PENDING APPROVED REJECTED CANCELLED }
+enum AttendanceStatus { PRESENT ABSENT LATE }
+
+model User {
+  id           String @id @default(cuid())
+  name         String
+  email        String @unique
+  passwordHash String
+  role         Role @default(MEMBER)
+  memberId     String? @unique
+  member       Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  coordinatedEvents EventCoordinator[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+model Department {
+  id      String @id @default(cuid())
+  name    String @unique
+  members Member[]
+}
+model Member {
+  id          String @id @default(cuid())
+  identifier  String @unique
+  fullName    String
+  nickname    String?
+  email       String @unique
+  phone       String?
+  status      MemberStatus @default(ACTIVE)
+  departmentId String
+  department  Department @relation(fields: [departmentId], references: [id])
+  title       String?
+  region      String?
+  commute     Commute? // informação voluntária, nunca GPS
+  commuteMin  Int?
+  transport   String?
+  preference  MemberPreference?
+  adminNotes  String? // retornado apenas aos administradores autorizados
+  joinedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?
+  availability MemberAvailability[]
+  skills       MemberSkill[]
+  assignments  ShiftAssignment[]
+  confirmations Confirmation[]
+  attendance  Attendance[]
+  swapRequests SwapRequest[] @relation("SwapRequester")
+  swapTarget   SwapRequest[] @relation("SwapTarget")
+  @@index([departmentId, status])
+}
+model MemberPreference {
+  id String @id @default(cuid())
+  memberId String @unique
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  preferredPeriod String @default("ANY") // EARLY, MIDDLE, LATE, ANY
+  enjoyAfterShift Boolean @default(false)
+  preferredStations String[] @default([])
+}
+model MemberAvailability {
+  id String @id @default(cuid())
+  memberId String
+  eventId String
+  startAt DateTime
+  endAt DateTime
+  available Boolean @default(true)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  @@index([memberId, eventId, startAt, endAt])
+  @@unique([memberId, eventId, startAt, endAt])
+}
+model Skill {
+  id String @id @default(cuid())
+  name String @unique
+  members MemberSkill[]
+  requirements ShiftRequirement[]
+}
+model MemberSkill {
+  memberId String
+  skillId String
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  @@id([memberId, skillId])
+}
+model Event {
+  id String @id @default(cuid())
+  name String
+  description String?
+  location String
+  timezone String @default("America/Sao_Paulo")
+  startsAt DateTime
+  endsAt DateTime
+  confirmationDeadline DateTime?
+  status EventStatus @default(PLANNING)
+  maxMinutesPerMember Int @default(360)
+  maxShiftsPerMember Int @default(4)
+  minRestMinutes Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  workstations Workstation[]
+  shifts Shift[]
+  availability MemberAvailability[]
+  schedules ScheduleVersion[]
+  generations ScheduleGeneration[]
+  coordinators EventCoordinator[]
+  @@index([startsAt, status])
+}
+model Workstation {
+  id String @id @default(cuid())
+  eventId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  minPeople Int @default(1)
+  idealPeople Int @default(1)
+  slotMinutes Int @default(90)
+  priority Int @default(1)
+  startsAt DateTime
+  endsAt DateTime
+  shifts Shift[]
+  @@unique([eventId, name])
+}
+model Shift {
+  id String @id @default(cuid())
+  eventId String
+  workstationId String
+  startsAt DateTime
+  endsAt DateTime
+  minPeople Int @default(1)
+  idealPeople Int @default(1)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  workstation Workstation @relation(fields: [workstationId], references: [id], onDelete: Cascade)
+  requirements ShiftRequirement[]
+  assignments ShiftAssignment[]
+  @@unique([workstationId, startsAt])
+  @@index([eventId, startsAt])
+}
+model ShiftRequirement {
+  shiftId String
+  skillId String
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id])
+  @@id([shiftId, skillId])
+}
+model ScheduleVersion {
+  id String @id @default(cuid())
+  eventId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  number Int
+  revision Int @default(0)
+  status ScheduleStatus @default(DRAFT)
+  createdAt DateTime @default(now())
+  publishedAt DateTime?
+  assignments ShiftAssignment[]
+  generations ScheduleGeneration[]
+  @@unique([eventId, number])
+  @@index([eventId, status])
+}
+model ShiftAssignment {
+  id String @id @default(cuid())
+  scheduleVersionId String
+  memberId String
+  shiftId String
+  locked Boolean @default(false)
+  createdAt DateTime @default(now())
+  scheduleVersion ScheduleVersion @relation(fields: [scheduleVersionId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id])
+  shift Shift @relation(fields: [shiftId], references: [id])
+  confirmation Confirmation?
+  attendance Attendance?
+  swapRequests SwapRequest[]
+  @@unique([scheduleVersionId, memberId, shiftId])
+  @@index([scheduleVersionId, shiftId])
+}
+model ScheduleGeneration {
+  id String @id @default(cuid())
+  eventId String
+  scheduleVersionId String
+  algorithm String @default("deterministic-greedy-v1")
+  uncovered Json
+  createdAt DateTime @default(now())
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  scheduleVersion ScheduleVersion @relation(fields: [scheduleVersionId], references: [id], onDelete: Cascade)
+}
+model Confirmation {
+  id String @id @default(cuid())
+  assignmentId String @unique
+  memberId String
+  status ConfirmationStatus @default(PENDING)
+  reason String?
+  updatedAt DateTime @updatedAt
+  assignment ShiftAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id])
+}
+model SwapRequest {
+  id String @id @default(cuid())
+  assignmentId String
+  requesterId String
+  targetId String?
+  status SwapStatus @default(PENDING)
+  reason String?
+  createdAt DateTime @default(now())
+  assignment ShiftAssignment @relation(fields: [assignmentId], references: [id])
+  requester Member @relation("SwapRequester", fields: [requesterId], references: [id])
+  target Member? @relation("SwapTarget", fields: [targetId], references: [id])
+}
+model Attendance {
+  id String @id @default(cuid())
+  assignmentId String @unique
+  memberId String
+  status AttendanceStatus
+  recordedAt DateTime @default(now())
+  assignment ShiftAssignment @relation(fields: [assignmentId], references: [id])
+  member Member @relation(fields: [memberId], references: [id])
+}
+model AuditLog {
+  id String @id @default(cuid())
+  actorId String?
+  action String
+  entity String
+  entityId String
+  details Json?
+  createdAt DateTime @default(now())
+  @@index([entity, entityId, createdAt])
+}
+
+// Acesso de coordenadores somente aos eventos explicitamente designados.
+model EventCoordinator {
+  eventId String
+  userId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  @@id([eventId, userId])
+  @@index([userId])
+}
+
+// Persistent throttle for auth; only salted email HMAC, no raw IPs or emails.
+model LoginThrottle {
+  key String @id
+  attempts Int @default(0)
+  windowStarted DateTime @default(now())
+  blockedUntil DateTime?
+}

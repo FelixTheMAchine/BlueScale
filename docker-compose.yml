@@ -1,0 +1,45 @@
+services:
+  web:
+    profiles: ["full"]
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://bluescale:bluescale_local@db:5432/bluescale?schema=public"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bluescale.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      SOLVER_SERVICE_URL: ${SOLVER_SERVICE_URL:-}
+      SOLVER_SERVICE_TOKEN: ${SOLVER_SERVICE_TOKEN:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bluescale
+      POSTGRES_USER: bluescale
+      POSTGRES_PASSWORD: bluescale_local
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bluescale"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  solver:
+    profiles: ["solver"]
+    build: ./solver-service
+    restart: unless-stopped
+    environment:
+      SOLVER_SERVICE_TOKEN: ${SOLVER_SERVICE_TOKEN:-}
+    expose:
+      - "8090"
+volumes:
+  postgres_data:

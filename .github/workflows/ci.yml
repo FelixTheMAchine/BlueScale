@@ -1,0 +1,75 @@
+name: BlueScale — CI e validação
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: bluescale_ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci_password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci -d bluescale_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci_password@localhost:5432/bluescale_ci?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: test_secret_with_at_least_32_characters_0123456789
+      ADMIN_EMAIL: ci-admin@example.com
+      ADMIN_PASSWORD: CiPassword_OnlyForBuild_123
+      DEMO_PASSWORD: CiPassword_OnlyForBuild_123
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Aplicar migrações
+        run: npx prisma migrate deploy
+      - name: Criar dados de teste
+        run: npm run db:seed
+      - name: Sintaxe, tipos, testes e build
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run test
+          npm run test:core
+          npm run test:mobile
+          npm run test:security
+          npm run test:release
+          npm run build
+      - name: Instalar Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Subir aplicação para E2E
+        run: |
+          npm run start > /tmp/bluescale.log 2>&1 &
+          for i in {1..45}; do curl -f -s http://localhost:3000/api/health && exit 0; sleep 2; done
+          cat /tmp/bluescale.log
+          exit 1
+      - name: Teste E2E
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostics
+          path: |
+            test-results/
+            playwright-report/
+  optimizer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r solver-service/requirements.txt pytest
+      - run: python -m pytest solver-service/tests -q
