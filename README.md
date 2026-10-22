@@ -95,3 +95,7 @@ Para informações detalhadas: [Resultado da release](docs/RELEASE-V1.md), [Oper
 ## Segurança e produção
 
 Mantenha segredos fora do repositório, PostgreSQL com backups automáticos e TLS, limite de tráfego via gateway/WAF e reporte de incidentes; teste restauração em base separada. A interface minimiza dados pessoais, não coleta GPS e não exporta dados residenciais. O service worker não guarda respostas autenticadas. Não libere para uso real até que a CI e os testes com dois aparelhos estejam verdes.
+
+## Demonstração web no GitHub Pages
+
+Após ativar Pages (Settings → Pages → Source: GitHub Actions), o workflow publica apenas a demonstração em [BlueScale DAs Web](https://felixthemachine.github.io/BlueScale/). **Dados permanecem no dispositivo e não sincronizam.** O [guia de hospedagem e privacidade](docs/HOSPEDAGEM-E-PRIVACIDADE.md) explica como hospedar a versão colaborativa de modo seguro.

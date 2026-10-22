@@ -23,3 +23,5 @@
 /* Emblema oficial BlueScale DAs também no cabeçalho do aplicativo. */
 .brandicon{width:46px;height:46px;object-fit:contain;display:block;flex:0 0 auto}
 @media(max-width:780px){.mobilehead .brandicon{width:38px;height:38px}}
+
+.demo-warning{margin:8px 0 14px;padding:10px 14px;border:1px solid #52749b;border-radius:12px;background:rgba(42,86,148,.15);font-size:12px;line-height:1.5;color:var(--ink);font-weight:600}

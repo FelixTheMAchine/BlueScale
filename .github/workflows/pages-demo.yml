@@ -1,0 +1,44 @@
+name: BlueScale DAs — GitHub Pages (demonstração)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo/**'
+      - '.github/workflows/pages-demo.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages-demo
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Validar arquivos públicos
+        run: |
+          test -f demo/index.html
+          test -f demo/app.js
+          test -f demo/engine.js
+          test -f demo/xlsx.js
+          test -f demo/manifest.webmanifest
+          test -f demo/sw.js
+          test -f demo/icons/blue-192.png
+          test -f demo/icons/blue-512.png
+          echo 'Nenhum dado pessoal deve ser publicado no GitHub Pages.'
+      - name: Empacotar somente demonstração (não backend)
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./demo
+      - name: Publicar demonstração web
+        id: deploy
+        uses: actions/deploy-pages@v4
