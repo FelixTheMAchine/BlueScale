@@ -19,3 +19,7 @@
 @media(max-width:400px){.h1{font-size:29px}.hero h1{font-size:29px}.btn{padding:10px 12px}.options{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media print{.side,.mobilehead,.bottomnav,.top,.controls,button,.search,dialog,.floattoast{display:none!important}.app{display:block}.main{padding:0}.panel,.event-card,.boardcol{box-shadow:none;break-inside:avoid}body{color:#000;background:#fff}.hero{color:white;-webkit-print-color-adjust:exact;print-color-adjust:exact}.board{display:grid;grid-template-columns:repeat(2,1fr)}}
+
+/* Emblema oficial BlueScale DAs também no cabeçalho do aplicativo. */
+.brandicon{width:46px;height:46px;object-fit:contain;display:block;flex:0 0 auto}
+@media(max-width:780px){.mobilehead .brandicon{width:38px;height:38px}}
