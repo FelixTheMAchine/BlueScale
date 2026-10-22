@@ -36,10 +36,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Usar SDK Android do runner
+      - name: Verificar Android SDK do runner
         run: |
           echo "Android SDK: ${ANDROID_HOME:-${ANDROID_SDK_ROOT:-indefinido}}"
-          sdkmanager --version
+          test -d "$ANDROID_HOME"
       - name: Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
