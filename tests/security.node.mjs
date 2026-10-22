@@ -43,18 +43,19 @@ test('trocas usam revisão da escala publicada mesmo havendo rascunho',()=>{
 
 test('consultas de membros não têm acesso a rascunhos ou rotas de escrita',()=>{
  const api=read('src/lib/api.ts');
- assert.doesNotMatch(api.match(/export const ALL=\\[[^;]+;/)?.[0]||'','VIEWER');
+ const sharedRoles=api.split('export const ALL=')[1]?.split(';')[0]||'';
+ assert.ok(!sharedRoles.includes('VIEWER'), 'VIEWER não deve herdar ALL');
  const auth=read('src/lib/auth.ts');
- assert.match(auth,/user\\.role === 'VIEWER'/);
- assert.match(auth,/portal === 'members'/);
+ assert.ok(auth.includes("user.role === 'VIEWER'"), 'Login separa as áreas');
+ assert.ok(auth.includes("portal === 'members'"), 'Login exige portal membro');
  const view=read('src/app/publicadas/page.tsx');
- assert.match(view,/status: 'PUBLISHED'/);
+ assert.ok(view.includes("status: 'PUBLISHED'"), 'Lista deve filtrar publicação');
  const detail=read('src/app/publicadas/[id]/page.tsx');
- assert.match(detail,/status:'PUBLISHED'/);
+ assert.ok(detail.includes("status:'PUBLISHED'"), 'Detalhe deve filtrar publicação');
  for(const path of ['src/app/api/publicadas/[id]/excel/route.ts','src/app/api/publicadas/[id]/csv/route.ts']) {
   const src=read(path);
-  assert.match(src,/requireRole\\(\\['VIEWER'\\]\\)/);
-  assert.match(src,/status:'PUBLISHED'/);
+  assert.ok(src.includes("requireRole(['VIEWER'])"), path+' autenticação');
+  assert.ok(src.includes("status:'PUBLISHED'"), path+' publicação');
   assert.match(src,/Cache-Control/);
   assert.doesNotMatch(src,/export async function POST|export async function PATCH|export async function PUT|export async function DELETE/);
  }
