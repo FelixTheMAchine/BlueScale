@@ -3,11 +3,31 @@ import Image from 'next/image';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { roleText } from '@/lib/labels';
-import { LogOut, UserRound, CalendarDays, LayoutDashboard, Users, ShieldCheck, CircleHelp, Sparkles, KeyRound, Settings2 } from 'lucide-react';
+import { LogOut, UserRound, CalendarDays, LayoutDashboard, Users, ShieldCheck, CircleHelp, Sparkles, KeyRound, Settings2, FileSpreadsheet, Download } from 'lucide-react';
 
 export async function Shell({children}:{children:React.ReactNode}){
  const session=await getServerSession(authOptions);
  if(!session)return <>{children}</>;
+
+ if(session.user.role==='VIEWER') return <div className="min-h-screen bg-[#f4f7fc]">
+   <header className="bg-[#0e1b33] text-white shadow-md">
+     <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center gap-3">
+       <Link href="/publicadas" className="flex items-center gap-3">
+         <Image src="/icons/blue-192.png" alt="BlueScale DAs" width={40} height={40} className="rounded-xl"/>
+         <span className="font-extrabold text-xl">Blue<span className="text-[#79afff]">Scale</span><small className="block text-[10px] tracking-wider text-[#a5b5d0]">ÁREA DOS MEMBROS · DAs</small></span>
+       </Link>
+       <Link href="/api/auth/signout" aria-label="Sair da conta" className="p-3 rounded-xl border border-[#32425a]"><LogOut size={18}/></Link>
+     </div>
+   </header>
+   <nav className="bg-white border-b" aria-label="Área de consulta">
+     <div className="max-w-5xl mx-auto px-4 py-3 flex gap-5 text-sm font-semibold">
+       <Link href="/publicadas" className="flex gap-2 items-center"><FileSpreadsheet size={18} color="#2776e4"/>Escalas publicadas</Link>
+       <Link href="/minha-conta" className="flex gap-2 items-center"><Settings2 size={18}/>Minha senha</Link>
+     </div>
+   </nav>
+   <main className="max-w-5xl mx-auto px-4 py-7 pb-16">{children}</main>
+   <footer className="max-w-5xl mx-auto p-4 text-xs text-[#64748b] flex gap-2 items-center"><Download size={15}/>Somente leitura: você pode consultar e baixar, mas não modificar a escala oficial.</footer>
+ </div>;
  const canManage=['ADMIN','PEOPLE'].includes(session.user.role);
  const links=[
   {href:'/',label:'Início',icon:LayoutDashboard},

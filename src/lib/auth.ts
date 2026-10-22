@@ -13,7 +13,7 @@ export const authOptions: NextAuthOptions = {
       portal: { label: 'Área', type: 'text' },
     },
     async authorize(credentials) {
-      const identifier = (credentials?.identifier || credentials?.email || '').trim().toLowerCase();
+      const identifier = (credentials?.identifier || '').trim().toLowerCase();
       const password = credentials?.password;
       const portal = credentials?.portal === 'members' ? 'members' : 'staff';
       if (!identifier || identifier.length > 254 || !password) return null;

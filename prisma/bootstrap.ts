@@ -10,7 +10,7 @@ async function main() {
   if (!existingAdmin) {
     const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
     const password = process.env.ADMIN_PASSWORD;
-    if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error('Configure ADMIN_EMAIL válido para a primeira conta.');
     }
     if (!password || password.length < 12) throw new Error('Configure ADMIN_PASSWORD (12+ caracteres).');
