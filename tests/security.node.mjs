@@ -17,7 +17,7 @@ test('backend valida competências e disponibilidade nas trocas',()=>{
  const s=read('src/app/api/swaps/[id]/review/route.ts');assert.match(s,/validateSchedule/);assert.match(s,/loadInputs/);
 });
 test('identidade DAs presente no PWA, Android e login',()=>{
- for(const p of ['src/app/login/page.tsx','src/components/shell.tsx','android-live/app/src/main/AndroidManifest.xml'])assert.match(read(p),/DAs|bluescale-das/i);
+ for(const p of ['src/components/login-screen.tsx','src/components/shell.tsx','android-live/app/src/main/AndroidManifest.xml'])assert.match(read(p),/DAs|bluescale-das/i);
  for(const p of ['public/icons/blue-192.png','public/icons/blue-512.png','android-live/app/src/main/res/drawable/app_icon.png']){
   const b=fs.readFileSync(p);assert.deepEqual([...b.subarray(0,8)],[137,80,78,71,13,10,26,10]);
  }
