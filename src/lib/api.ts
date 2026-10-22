@@ -19,9 +19,23 @@ export const TEAM=['ADMIN','PEOPLE','EVENT_COORDINATOR'];
 export const ALL=['ADMIN','PEOPLE','EVENT_COORDINATOR','MEMBER'];
 export function sameOrigin(req:NextRequest) {
  const origin=req.headers.get('origin');
- const url=new URL(req.url);
- // Bloqueia requisições cross-site em endpoints que mudam estado.
- if(origin && new URL(origin).host!==url.host) throw new HttpError(403,'Origem inválida.');
+ if(!origin)return;
+ let browserOrigin:URL;
+ try{browserOrigin=new URL(origin);}catch{throw new HttpError(403,'Origem inválida.');}
+ if(!['http:','https:'].includes(browserOrigin.protocol)||browserOrigin.origin!==origin){
+  throw new HttpError(403,'Origem inválida.');
+ }
+ // Next/Render pode montar req.url com host interno (0.0.0.0), diferente do Host público.
+ // Valide a origem real contra o Host recebido e o domínio HTTPS configurado,
+ // sem autorizar domínios externos arbitrários.
+ const requestURL=new URL(req.url);
+ const allowedOrigins=new Set<string>([requestURL.origin]);
+ const requestHost=req.headers.get('host');
+ if(requestHost)allowedOrigins.add(`${requestURL.protocol}//${requestHost}`);
+ if(process.env.NEXTAUTH_URL){
+  try{allowedOrigins.add(new URL(process.env.NEXTAUTH_URL).origin);}catch{/*URL inválida não concede acesso*/ }
+ }
+ if(!allowedOrigins.has(browserOrigin.origin))throw new HttpError(403,'Origem inválida.');
 }
 export async function jsonBody(req:NextRequest) {
  sameOrigin(req);
