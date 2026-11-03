@@ -49,6 +49,7 @@ export async function PATCH(req:NextRequest,{params}:Context){try{
   }
   let warning:string|undefined;
   let uncoveredShifts:number|undefined;
+  let overIdealShifts:number|undefined;
   if(demandChanged&&scheduleCount){
    // Keep published attendance, confirmations and allocations. Revalidate the
    // latest schedule's coverage so GP knows what still needs staffing.
@@ -63,15 +64,16 @@ export async function PATCH(req:NextRequest,{params}:Context){try{
     });
     const assigned=new Map(counts.map(count=>[count.shiftId,count._count._all]));
     uncoveredShifts=current.shifts.filter(shift=>(assigned.get(shift.id)||0)<data.minPeople).length;
-    warning=uncoveredShifts
-     ? `Demanda salva. ${uncoveredShifts} turno(s) deste posto estão abaixo do novo mínimo. Revise a escala; nenhuma atribuição foi alterada.`
+    overIdealShifts=current.shifts.filter(shift=>(assigned.get(shift.id)||0)>data.idealPeople).length;
+    warning=uncoveredShifts||overIdealShifts
+     ? `Demanda salva. ${uncoveredShifts} turno(s) abaixo do mínimo e ${overIdealShifts} acima do ideal. Nenhuma pessoa foi retirada ou adicionada; revise a escala e, se necessário, gere e publique uma nova versão.`
      : 'Demanda salva. A escala existente e as pessoas atribuídas foram preservadas; confira a cobertura.';
    }
    // Concurrent editors must reload before saving changes to a draft.
    await tx.scheduleVersion.updateMany({where:{eventId:id,status:'DRAFT'},data:{revision:{increment:1}}});
   }
-  await tx.auditLog.create({data:{actorId:actor.id,action:'UPDATE',entity:'Workstation',entityId:workstationId,details:{demandChanged,minPeople:data.minPeople,idealPeople:data.idealPeople,uncoveredShifts}}});
-  return {id:workstationId,warning,uncoveredShifts};
+  await tx.auditLog.create({data:{actorId:actor.id,action:'UPDATE',entity:'Workstation',entityId:workstationId,details:{demandChanged,minPeople:data.minPeople,idealPeople:data.idealPeople,uncoveredShifts:uncoveredShifts??null,overIdealShifts:overIdealShifts??null}}});
+  return {id:workstationId,warning,uncoveredShifts,overIdealShifts};
  },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
  return ok(result);
 }catch(e){return fail(e)}}
