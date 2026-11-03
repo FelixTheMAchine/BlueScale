@@ -5,6 +5,7 @@ type Dep={id:string;name:string};type Skill={id:string;name:string};type Member=
 const initial={identifier:'',fullName:'',email:'',departmentId:'',status:'ACTIVE',preferredPeriod:'ANY',commute:null as null | 'NEAR' | 'MEDIUM' | 'FAR',skillIds:[] as string[]};
 export function MembersClient(){const[deps,setDeps]=useState<Dep[]>([]),[skills,setSkills]=useState<Skill[]>([]),[rows,setRows]=useState<Member[]>([]),[query,setQuery]=useState(''),[form,setForm]=useState(initial),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[msg,setMsg]=useState('');
  const [editingId,setEditingId]=useState<string|null>(null);const [deptDraft,setDeptDraft]=useState(''),[deptError,setDeptError]=useState(''),[deptLoading,setDeptLoading]=useState(true),[deptSaving,setDeptSaving]=useState(false),[showDeptForm,setShowDeptForm]=useState(false);
+ useEffect(()=>{if(open)document.getElementById('member-form')?.scrollIntoView({behavior:'smooth',block:'start'});},[open,editingId]);
  async function refresh(q=query){const r=await fetch(`/api/members?q=${encodeURIComponent(q)}`);if(r.ok)setRows((await r.json()).data||[])}
  async function loadDepartments(){
   setDeptLoading(true);setDeptError('');
