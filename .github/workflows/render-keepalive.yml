@@ -1,0 +1,22 @@
+name: Render BlueScale keepalive
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Request BlueScale health endpoint
+        run: |
+          curl --fail --silent --show-error --max-time 40 --retry 2 --retry-delay 5 \
+            https://bluescale-das-online.onrender.com/api/health
+
+# Scheduled workflows only run on the default branch, and GitHub may delay or skip
+# scheduled runs under load. This does not guarantee uptime or keep Postgres free
+# database instances from expiring. Use an external uptime monitor for alerting.
