@@ -22,9 +22,12 @@ export async function PATCH(req:NextRequest,{params}:Context){try{
    skillIds:input.skillIds??previousSkills
   });
   const skillChanged=data.skillIds.length!==previousSkills.length||data.skillIds.some(s=>!previousSkills.includes(s));
-  const structural=data.minPeople!==current.minPeople||data.idealPeople!==current.idealPeople||data.slotMinutes!==current.slotMinutes||skillChanged;
+  // Changing headcount does not change shift identities, times or assignments.
+  // Only duration/skill changes invalidate existing schedules and stay locked.
+  const demandChanged=data.minPeople!==current.minPeople||data.idealPeople!==current.idealPeople;
+  const structural=data.slotMinutes!==current.slotMinutes||skillChanged;
   const scheduleCount=await tx.scheduleVersion.count({where:{eventId:id}});
-  if(structural&&(scheduleCount||current.event.status==='PUBLISHED'))throw new HttpError(409,'Já existe escala para este evento. Renomeie o posto ou crie um novo evento para mudar turnos, equipe mínima ou habilitações.');
+  if(structural&&(scheduleCount||current.event.status==='PUBLISHED'))throw new HttpError(409,'Já existe escala para este evento. Duração do turno e habilitações não podem ser alteradas sem recriar os turnos. Mínimo e ideal podem ser editados livremente.');
   if(current.event.status==='PUBLISHED'&&data.priority!==current.priority)throw new HttpError(409,'Prioridade bloqueada após publicação.');
   const totalMinutes=(current.endsAt.getTime()-current.startsAt.getTime())/60000;
   if(Math.ceil(totalMinutes/data.slotMinutes)>200)throw new HttpError(400,'Máximo de 200 turnos por posto.');
@@ -44,8 +47,31 @@ export async function PATCH(req:NextRequest,{params}:Context){try{
     if(shifts.length&&data.skillIds.length)await tx.shiftRequirement.createMany({data:shifts.flatMap(s=>data.skillIds.map(skillId=>({shiftId:s.id,skillId})))});
    }
   }
-  await tx.auditLog.create({data:{actorId:actor.id,action:'UPDATE',entity:'Workstation',entityId:workstationId}});
-  return {id:workstationId};
+  let warning:string|undefined;
+  let uncoveredShifts:number|undefined;
+  if(demandChanged&&scheduleCount){
+   // Keep published attendance, confirmations and allocations. Revalidate the
+   // latest schedule's coverage so GP knows what still needs staffing.
+   const latest=await tx.scheduleVersion.findFirst({
+    where:{eventId:id,...(current.event.status==='PUBLISHED'?{status:'PUBLISHED' as const}:{})},
+    orderBy:{number:'desc'},select:{id:true,status:true}
+   });
+   if(latest){
+    const counts=await tx.shiftAssignment.groupBy({
+     by:['shiftId'],where:{scheduleVersionId:latest.id,shiftId:{in:current.shifts.map(shift=>shift.id)}},
+     _count:{_all:true}
+    });
+    const assigned=new Map(counts.map(count=>[count.shiftId,count._count._all]));
+    uncoveredShifts=current.shifts.filter(shift=>(assigned.get(shift.id)||0)<data.minPeople).length;
+    warning=uncoveredShifts
+     ? `Demanda salva. ${uncoveredShifts} turno(s) deste posto estão abaixo do novo mínimo. Revise a escala; nenhuma atribuição foi alterada.`
+     : 'Demanda salva. A escala existente e as pessoas atribuídas foram preservadas; confira a cobertura.';
+   }
+   // Concurrent editors must reload before saving changes to a draft.
+   await tx.scheduleVersion.updateMany({where:{eventId:id,status:'DRAFT'},data:{revision:{increment:1}}});
+  }
+  await tx.auditLog.create({data:{actorId:actor.id,action:'UPDATE',entity:'Workstation',entityId:workstationId,details:{demandChanged,minPeople:data.minPeople,idealPeople:data.idealPeople,uncoveredShifts}}});
+  return {id:workstationId,warning,uncoveredShifts};
  },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
  return ok(result);
 }catch(e){return fail(e)}}
