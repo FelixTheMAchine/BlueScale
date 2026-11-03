@@ -18,8 +18,8 @@ export function EventsClient({canCreate=true}:{canCreate?:boolean}){const[rows,s
    // unless the user really changed the field (seconds must not be silently lost).
    const sameStart=original&&formatInTimeZone(new Date(original.startsAt),'America/Sao_Paulo',"yyyy-MM-dd'T'HH:mm")===form.start;
    const sameEnd=original&&formatInTimeZone(new Date(original.endsAt),'America/Sao_Paulo',"yyyy-MM-dd'T'HH:mm")===form.end;
-   const startsAt=sameStart?original.startsAt:fromZonedTime(form.start,'America/Sao_Paulo').toISOString();
-   const endsAt=sameEnd?original.endsAt:fromZonedTime(form.end,'America/Sao_Paulo').toISOString();
+   const startsAt=original&&sameStart?original.startsAt:fromZonedTime(form.start,'America/Sao_Paulo').toISOString();
+   const endsAt=original&&sameEnd?original.endsAt:fromZonedTime(form.end,'America/Sao_Paulo').toISOString();
    const r=await fetch(editingId?`/api/events/${editingId}`:'/api/events',{method:editingId?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,startsAt,endsAt})});
    const b=await r.json().catch(()=>({error:'O servidor não retornou uma resposta válida.'}));
    if(!r.ok)throw new Error([b.error,Array.isArray(b.details)?b.details.map((d:{message?:string})=>d.message).filter(Boolean).join(' · '):''].filter(Boolean).join(' — ')||`Não foi possível salvar o evento (HTTP ${r.status}).`);
