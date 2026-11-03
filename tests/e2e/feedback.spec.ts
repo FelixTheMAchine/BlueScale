@@ -96,3 +96,36 @@ test('editar evento com postos preserva segundos e permite salvar novamente',asy
   expect(afterSecond.location).toBe('Local atualizado 2');
  }finally{await page.request.delete('/api/events/'+id);}
 });
+
+
+test('renomear membro na interface atualiza a lista e mantém o cadastro salvo',async({page})=>{
+ test.skip(!process.env.ADMIN_EMAIL||!process.env.ADMIN_PASSWORD,'Credenciais de teste indisponíveis');
+ await page.goto('/login');
+ await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
+ await page.getByLabel('Senha').fill(process.env.ADMIN_PASSWORD!);
+ await page.getByRole('button',{name:'Entrar no BlueScale'}).click();
+ await expect(page.getByText('Uma escala mais justa.')).toBeVisible();
+ const departments=await (await page.request.get('/api/departments')).json();
+ const token=Date.now().toString(36);
+ const oldName='Participante Antigo '+token;
+ const newName='Participante Novo '+token;
+ const r=await page.request.post('/api/members',{data:{identifier:'change'+token,fullName:oldName,email:'change'+token+'@example.com',departmentId:departments[0].id,preferredPeriod:'ANY',skillIds:[]}});
+ expect(r.status()).toBe(201);
+ const memberId=(await r.json()).id;
+ await page.goto('/membros');
+ const search=page.getByPlaceholder('Pesquisar por nome ou matrícula...');
+ await search.fill(oldName);
+ await search.press('Enter');
+ const oldRow=page.locator('tr').filter({hasText:oldName});
+ await expect(oldRow).toBeVisible();
+ await oldRow.getByRole('button',{name:'Editar'}).click();
+ const form=page.locator('#member-form');
+ await expect(form).toBeVisible();
+ await form.locator('input').nth(1).fill(newName);
+ await form.getByRole('button',{name:'Salvar alterações'}).click();
+ await expect(page.getByText('Dados do membro atualizados e salvos.')).toBeVisible();
+ await expect(search).toHaveValue(newName);
+ await expect(page.locator('tr').filter({hasText:newName})).toBeVisible();
+ const after=await (await page.request.get('/api/members?q='+encodeURIComponent(newName))).json();
+ expect(after.data.find((m:{id:string})=>m.id===memberId)?.fullName).toBe(newName);
+});
