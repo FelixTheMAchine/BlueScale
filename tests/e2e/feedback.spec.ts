@@ -53,3 +53,79 @@ test('feedback 1.1: edita/desativa membros e edita/remove postos e eventos sem e
  expect((await page.request.delete('/api/events/'+eventId)).status()).toBe(200);
  expect((await page.request.get('/api/events/'+eventId)).status()).toBe(404);
 });
+
+
+test('editar evento com postos preserva segundos e permite salvar novamente',async({page})=>{
+ test.skip(!process.env.ADMIN_EMAIL||!process.env.ADMIN_PASSWORD,'Credenciais de teste indisponíveis');
+ await page.goto('/login');
+ await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
+ await page.getByLabel('Senha').fill(process.env.ADMIN_PASSWORD!);
+ await page.getByRole('button',{name:'Entrar no BlueScale'}).click();
+ await expect(page.getByText('Uma escala mais justa.')).toBeVisible();
+ const token=Date.now().toString(36);
+ const start=new Date(); start.setUTCDate(start.getUTCDate()+6);start.setUTCHours(18,17,43,0);
+ const end=new Date(start.getTime()+2*60*60*1000);
+ const eventInput={name:'Salvar E2E '+token,description:'teste',location:'Local inicial',startsAt:start.toISOString(),endsAt:end.toISOString(),maxMinutesPerMember:360,maxShiftsPerMember:4,minRestMinutes:0};
+ const created=await page.request.post('/api/events',{data:eventInput});
+ expect(created.status()).toBe(201);
+ const id=(await created.json()).id;
+ try{
+  const station=await page.request.post('/api/events/'+id+'/workstations',{data:{name:'Entrada',minPeople:1,idealPeople:1,slotMinutes:60,priority:1,skillIds:[]}});
+  expect(station.status()).toBe(201);
+  await page.goto('/eventos');
+  const card=page.locator('article').filter({hasText:eventInput.name});
+  await expect(card).toBeVisible();
+  await card.getByRole('button',{name:'Editar'}).click();
+  const form=page.locator('#event-form');
+  await expect(form).toBeVisible();
+  await expect(form.locator('input[type="datetime-local"]').first()).toBeDisabled();
+  await form.locator('input').nth(1).fill('Local atualizado');
+  await form.getByRole('button',{name:'Salvar alterações'}).click();
+  await expect(page.getByText('Alterações do evento salvas com sucesso.')).toBeVisible();
+  const afterFirst=await (await page.request.get('/api/events/'+id)).json();
+  expect(afterFirst.startsAt).toBe(eventInput.startsAt);
+  expect(afterFirst.endsAt).toBe(eventInput.endsAt);
+  expect(afterFirst.location).toBe('Local atualizado');
+  // Bug regression: a successful edit must clear busy, allowing another edit.
+  await card.getByRole('button',{name:'Editar'}).click();
+  await expect(form.getByRole('button',{name:'Salvar alterações'})).toBeEnabled();
+  await form.locator('input').nth(1).fill('Local atualizado 2');
+  await form.getByRole('button',{name:'Salvar alterações'}).click();
+  await expect(page.getByText('Alterações do evento salvas com sucesso.')).toBeVisible();
+  const afterSecond=await (await page.request.get('/api/events/'+id)).json();
+  expect(afterSecond.location).toBe('Local atualizado 2');
+ }finally{await page.request.delete('/api/events/'+id);}
+});
+
+
+test('renomear membro na interface atualiza a lista e mantém o cadastro salvo',async({page})=>{
+ test.skip(!process.env.ADMIN_EMAIL||!process.env.ADMIN_PASSWORD,'Credenciais de teste indisponíveis');
+ await page.goto('/login');
+ await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
+ await page.getByLabel('Senha').fill(process.env.ADMIN_PASSWORD!);
+ await page.getByRole('button',{name:'Entrar no BlueScale'}).click();
+ await expect(page.getByText('Uma escala mais justa.')).toBeVisible();
+ const departments=await (await page.request.get('/api/departments')).json();
+ const token=Date.now().toString(36);
+ const oldName='Participante Antigo '+token;
+ const newName='Participante Novo '+token;
+ const r=await page.request.post('/api/members',{data:{identifier:'change'+token,fullName:oldName,email:'change'+token+'@example.com',departmentId:departments[0].id,preferredPeriod:'ANY',skillIds:[]}});
+ expect(r.status()).toBe(201);
+ const memberId=(await r.json()).id;
+ await page.goto('/membros');
+ const search=page.getByPlaceholder('Pesquisar por nome ou matrícula...');
+ await search.fill(oldName);
+ await search.press('Enter');
+ const oldRow=page.locator('tr').filter({hasText:oldName});
+ await expect(oldRow).toBeVisible();
+ await oldRow.getByRole('button',{name:'Editar'}).click();
+ const form=page.locator('#member-form');
+ await expect(form).toBeVisible();
+ await form.locator('input').nth(1).fill(newName);
+ await form.getByRole('button',{name:'Salvar alterações'}).click();
+ await expect(page.getByText('Dados do membro atualizados e salvos.')).toBeVisible();
+ await expect(search).toHaveValue(newName);
+ await expect(page.locator('tr').filter({hasText:newName})).toBeVisible();
+ const after=await (await page.request.get('/api/members?q='+encodeURIComponent(newName))).json();
+ expect(after.data.find((m:{id:string})=>m.id===memberId)?.fullName).toBe(newName);
+});
