@@ -129,3 +129,72 @@ test('renomear membro na interface atualiza a lista e mantém o cadastro salvo',
  const after=await (await page.request.get('/api/members?q='+encodeURIComponent(newName))).json();
  expect(after.data.find((m:{id:string})=>m.id===memberId)?.fullName).toBe(newName);
 });
+
+
+test('posto: mínimo e ideal podem mudar após gerar e publicar sem apagar turnos nem atribuições', async ({ page }) => {
+ test.skip(!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD,'Necessita credenciais administrativas');
+ await page.goto('/login');
+ await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
+ await page.getByLabel('Senha').fill(process.env.ADMIN_PASSWORD!);
+ await page.getByRole('button',{name:'Entrar no BlueScale'}).click();
+ await expect(page.getByText('Uma escala mais justa.')).toBeVisible();
+
+ const token=Date.now().toString(36);
+ const startsAt=new Date(Date.now()+5*24*60*60*1000);
+ startsAt.setUTCHours(15,0,0,0);
+ const event=await page.request.post('/api/events',{data:{
+  name:'Cobertura de posto '+token,description:'Teste de atualização da equipe',
+  location:'Campus',startsAt:startsAt.toISOString(),
+  endsAt:new Date(startsAt.getTime()+120*60000).toISOString(),
+  maxMinutesPerMember:360,maxShiftsPerMember:4,minRestMinutes:0
+ }});
+ expect(event.status()).toBe(201);
+ const eventId=(await event.json()).id;
+ const station=await page.request.post('/api/events/'+eventId+'/workstations',{data:{
+  name:'Portaria',minPeople:1,idealPeople:2,slotMinutes:60,priority:1,skillIds:[]
+ }});
+ expect(station.status()).toBe(201);
+ const stationId=(await station.json()).id;
+ const initial=(await (await page.request.get('/api/events/'+eventId)).json()).shifts;
+ const shiftIds=initial.map((s:{id:string})=>s.id).sort();
+
+ const generated=await page.request.post('/api/events/'+eventId+'/schedule/generate',{data:{}});
+ expect(generated.status()).toBe(200);
+ const draftBefore=await (await page.request.get('/api/events/'+eventId+'/schedule')).json();
+ const patch=await page.request.patch('/api/events/'+eventId+'/workstations/'+stationId,{
+  data:{name:'Portaria',minPeople:2,idealPeople:3,slotMinutes:60,priority:1,skillIds:[]}
+ });
+ expect(patch.status()).toBe(200);
+ const changed=await patch.json();
+ expect(changed.warning).toContain('Demanda salva');
+ const draftAfter=await (await page.request.get('/api/events/'+eventId+'/schedule')).json();
+ expect(draftAfter.revision).toBe(draftBefore.revision+1);
+ expect(draftAfter.assignments).toHaveLength(draftBefore.assignments.length);
+
+ const published=await page.request.post('/api/events/'+eventId+'/schedule/publish',{
+  data:{versionId:draftAfter.id,revision:draftAfter.revision,acceptIncomplete:true}
+ });
+ expect(published.status()).toBe(200);
+
+ await page.goto('/eventos/'+eventId);
+ await page.getByRole('button',{name:'Editar'}).click();
+ const form=page.locator('#workstation-form');
+ await expect(form).toBeVisible();
+ const numeric=form.locator('input[type="number"]');
+ await expect(numeric.nth(0)).toBeEnabled();
+ await expect(numeric.nth(1)).toBeEnabled();
+ await expect(numeric.nth(2)).toBeDisabled();
+ await numeric.nth(0).fill('3');
+ await numeric.nth(1).fill('4');
+ await form.getByRole('button',{name:'Salvar alterações'}).click();
+ await expect(page.getByText(/Posto atualizado/)).toBeVisible();
+ const updated=await (await page.request.get('/api/events/'+eventId)).json();
+ const updatedStation=updated.workstations.find((w:{id:string})=>w.id===stationId);
+ expect(updatedStation.minPeople).toBe(3);
+ expect(updatedStation.idealPeople).toBe(4);
+ expect(updated.shifts.map((s:{id:string})=>s.id).sort()).toEqual(shiftIds);
+ expect(updated.shifts.every((s:{minPeople:number;idealPeople:number})=>s.minPeople===3&&s.idealPeople===4)).toBe(true);
+ const publishedAfter=await (await page.request.get('/api/events/'+eventId+'/schedule?view=published')).json();
+ expect(publishedAfter.id).toBe(draftAfter.id);
+ expect(publishedAfter.assignments).toHaveLength(draftBefore.assignments.length);
+});
