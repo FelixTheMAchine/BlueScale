@@ -12,6 +12,13 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
   }
   if(data.role==='MEMBER'&&!old.memberId)throw new HttpError(400,'Conta sem membro vinculado.');
   const result=await tx.user.update({where:{id},data:{...(data.role?{role:data.role}:{}),...(data.password?{passwordHash:await bcrypt.hash(data.password,12)}:{})},select:{id:true,role:true,name:true}});
+  if(data.role==='EVENT_COORDINATOR'&&old.memberId){
+   const nominations=await tx.eventCoordinatorMember.findMany({where:{memberId:old.memberId},select:{eventId:true}});
+   if(nominations.length)await tx.eventCoordinator.createMany({data:nominations.map(n=>({eventId:n.eventId,userId:id})),skipDuplicates:true});
+  }else if(data.role&&old.role==='EVENT_COORDINATOR'&&data.role!=='EVENT_COORDINATOR'){
+   // Revoking coordinator role also revokes event scoped access.
+   await tx.eventCoordinator.deleteMany({where:{userId:id}});
+  }
   await tx.auditLog.create({data:{actorId:actor.id,action:'USER_UPDATE',entity:'User',entityId:id,details:{roleChanged:!!data.role,passwordReset:!!data.password}}});return result;
  });return ok(user);
  }catch(e){return fail(e)}}
