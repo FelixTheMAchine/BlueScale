@@ -47,6 +47,14 @@ export async function POST(req: NextRequest) {
       const u = await tx.user.create({
         data: { name: data.name, email: mail, username: loginName, role: data.role, memberId: data.memberId || null, passwordHash: hash },
       });
+      // Activate access only for events where this member was deliberately
+      // nominated; never turn an ordinary member into a coordinator silently.
+      if(u.role==='EVENT_COORDINATOR'&&u.memberId){
+        const nominated=await tx.eventCoordinatorMember.findMany({where:{memberId:u.memberId},select:{eventId:true}});
+        if(nominated.length)await tx.eventCoordinator.createMany({
+          data:nominated.map(item=>({eventId:item.eventId,userId:u.id})),skipDuplicates:true,
+        });
+      }
       await tx.auditLog.create({ data: { actorId: actor.id, action: 'USER_CREATE', entity: 'User', entityId: u.id, details: { role: u.role, username: u.username } } });
       return { id: u.id, username: u.username, email: data.email || null, role: u.role };
     });

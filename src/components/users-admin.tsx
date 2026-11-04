@@ -19,13 +19,9 @@ export function UsersAdmin() {
   const [message,setMessage] = useState('');
   const [busy,setBusy] = useState(false);
   async function reload() {
-    const [u,m] = await Promise.all([fetch('/api/users'),fetch('/api/members?page=1')]);
+    const [u,m] = await Promise.all([fetch('/api/users'),fetch('/api/members/active')]);
     if(u.ok) setUsers(await u.json());
-    if(m.ok) {
-      const first = (await m.json()).data || [];
-      const more = await fetch('/api/members?page=2');
-      setMembers([...first,...(more.ok?(await more.json()).data:[])]);
-    }
+    if(m.ok)setMembers(await m.json());
   }
   useEffect(()=>{ void reload(); },[]);
 
@@ -47,7 +43,7 @@ export function UsersAdmin() {
     setBusy(true);
     setMessage('');
     try {
-      const payload={...form,memberId:form.role==='MEMBER'?(form.memberId||null):null};
+      const payload={...form,memberId:['MEMBER','EVENT_COORDINATOR'].includes(form.role)?(form.memberId||null):null};
       const res=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const data=await res.json();
       if(!res.ok)throw new Error(data.error||'Não foi possível criar.');
@@ -78,11 +74,12 @@ export function UsersAdmin() {
         <select id="new-role" className="input" value={form.role} onChange={e=>setForm({...form,role:e.target.value,memberId:''})}>
           {roles.map(([id,name])=><option value={id} key={id}>{name}</option>)}
         </select>
-        {form.role==='MEMBER'&&<>
-          <label className="label" htmlFor="new-member">Membro vinculado</label>
+        {['MEMBER','EVENT_COORDINATOR'].includes(form.role)&&<>
+          <label className="label" htmlFor="new-member">{form.role==='EVENT_COORDINATOR'?'Vincular ao membro da equipe (recomendado)':'Membro vinculado'}</label>
           <select id="new-member" className="input" value={form.memberId} onChange={e=>setForm({...form,memberId:e.target.value})}>
             <option value="">Selecione o membro...</option>{members.map(m=><option value={m.id} key={m.id}>{m.fullName}</option>)}
           </select>
+          {form.role==='EVENT_COORDINATOR'&&<p className="muted text-xs">Se este membro já foi designado coordenador de uma festa, a permissão para aquela festa será ativada ao criar a conta.</p>}
         </>}
         {form.role==='VIEWER'&&<p className="text-xs rounded-xl p-3 bg-[#2a79fb18]">Somente leitura: a conta entra por <strong>“Entrar como membro”</strong> e nunca acessa rascunhos ou ferramentas de edição.</p>}
         <label className="label" htmlFor="new-password">Senha provisória (mínimo de 12 caracteres)</label>
