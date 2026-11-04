@@ -5,7 +5,7 @@ import { exportCsv } from '@/lib/csv';
 import { formatInTimeZone } from 'date-fns-tz';
 export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){try{
  const actor=await requireRole(TEAM);const {id}=await params;await requireEventAccess(actor,id);
- const e=await prisma.event.findUnique({where:{id},select:{name:true,schedules:{orderBy:{number:'desc'},take:1,include:{assignments:{include:{member:{select:{fullName:true,department:{select:{name:true}}}},confirmation:true,shift:{include:{workstation:true}}}}}}}});
+ const e=await prisma.event.findUnique({where:{id},select:{name:true,schedules:{orderBy:{number:'desc'},take:1,include:{assignments:{where:{shift:{workstation:{archivedAt:null}}},include:{member:{select:{fullName:true,department:{select:{name:true}}}},confirmation:true,shift:{include:{workstation:true}}}}}}}});
  if(!e?.schedules.length)throw new HttpError(404,'Escala não encontrada.');
  const rows:(string|number)[][]=[['Início','Fim','Posto','Membro','Diretoria','Confirmação']];
  for(const a of e.schedules[0].assignments.sort((x,y)=>x.shift.startsAt.getTime()-y.shift.startsAt.getTime()))rows.push([
