@@ -16,7 +16,7 @@ export default async function PublishedSchedulesPage(){
       id: true, name: true, location: true, startsAt: true, endsAt: true,
       schedules: {
         where: { status: 'PUBLISHED' }, take: 1, orderBy: { number: 'desc' },
-        select: { number: true, publishedAt: true, _count: { select: { assignments: { where: { shift: { workstation: { archivedAt: null } } } } } },
+        select: { number: true, publishedAt: true, _count: { select: { assignments: { where: { shift: { workstation: { archivedAt: null } } } } } } },
       },
     },
     orderBy: { startsAt: 'desc' },
