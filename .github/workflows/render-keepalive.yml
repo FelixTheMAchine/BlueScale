@@ -1,10 +1,10 @@
 name: Render BlueScale keepalive
 
 on:
-  # Off peak hour, at most 14 minutes between scheduled slots.
-  # GitHub's schedule is best-effort and can be delayed or skipped.
+  # Back-up monitor only: GitHub schedules are best-effort, may be skipped.
+  # Use a dedicated external HTTP monitor every 5 minutes for the primary ping.
   schedule:
-    - cron: '3-59/14 * * * *'
+    - cron: '3-59/5 * * * *'
   workflow_dispatch:
   push:
     branches: [main]
@@ -22,16 +22,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: HTTP keepalive (sem consultar o PostgreSQL)
+      - name: Verify lightweight BlueScale HTTP ping
+        shell: bash
         run: |
-          echo "Monitor: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          curl --fail --silent --show-error --location \
-            --connect-timeout 12 --max-time 95 \
-            --retry 2 --retry-delay 6 --retry-all-errors \
-            --user-agent 'BlueScale-keepalive/1.3' \
+          set -euo pipefail
+          echo "Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          curl --fail --location --silent --show-error \
+            --connect-timeout 15 --max-time 100 \
+            --retry 2 --retry-delay 5 --retry-all-errors \
+            --user-agent 'BlueScale-keepalive-GitHub-backup/2.0' \
+            --write-out '\nHTTP %{http_code}; response time %{time_total}s\n' \
             https://bluescale-das-online.onrender.com/api/ping
-          echo
+          echo "Done: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# This does not guarantee uptime. Free Render instances can sleep/restart,
-# and scheduled GitHub Actions jobs can be delayed or skipped.
-# Free Render PostgreSQL expiration is not affected by this workflow.
+# Render Free sleeps after 15 minutes of no inbound traffic.
+# Scheduled GitHub workflows are NOT guaranteed to run on time; this cron
+# is a backup and cannot guarantee continuous uptime on its own.
+# Free PostgreSQL expiry is separate.
