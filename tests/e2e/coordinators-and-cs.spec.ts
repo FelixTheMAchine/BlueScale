@@ -64,16 +64,26 @@ test('GP seleciona coordenadores da equipe mesmo sem ser ADMIN, e nome persiste'
  expect(after.members.some((m:{memberId:string})=>m.memberId===memberId)).toBe(false);
 });
 
-test('navegação principal e mobile exibem coração com CS',async({page})=>{
+test('menus sem corações; grafite do coldzera aparece como detalhe na página inicial',async({page})=>{
  test.skip(!process.env.ADMIN_EMAIL||!process.env.ADMIN_PASSWORD,'Credenciais de teste necessárias');
  await page.goto('/login');
  await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
  await page.getByLabel('Senha').fill(process.env.ADMIN_PASSWORD!);
  await page.getByRole('button',{name:'Entrar no BlueScale'}).click();
  await expect(page.getByText('Uma escala mais justa.')).toBeVisible();
+
  const desktop=page.locator('nav[aria-label="Navegação principal"]');
- await expect(desktop.locator('a').first().locator('svg text')).toHaveText('CS');
+ await expect(desktop.locator('svg text')).toHaveCount(0);
+ const art=page.getByRole('img',{name:'Arte inspirada no grafite da AWP alada do coldzera na Mirage'});
+ await expect(art).toBeVisible();
+ await expect(art).toHaveAttribute('src','/coldzera-graffiti.svg');
+ await expect(page.getByText('MIRAGE · 2016')).toBeVisible();
+ const asset=await page.request.get('/coldzera-graffiti.svg');
+ expect(asset.status()).toBe(200);
+ expect(await asset.text()).toContain('Grafite inspirado na AWP alada de coldzera');
+
  await page.setViewportSize({width:390,height:844});
  const mobile=page.locator('nav[aria-label="Navegação do aplicativo"]');
- await expect(mobile.locator('a').first().locator('svg text')).toHaveText('CS');
+ await expect(mobile.locator('svg text')).toHaveCount(0);
+ await expect(art).toBeVisible();
 });
