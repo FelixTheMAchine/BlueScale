@@ -167,6 +167,7 @@ model Workstation {
   idealPeople Int @default(1)
   slotMinutes Int @default(90)
   priority Int @default(1)
+  archivedAt DateTime? // Excluído da operação, preserva turnos e presenças já publicados.
   startsAt DateTime
   endsAt DateTime
   shifts Shift[]
