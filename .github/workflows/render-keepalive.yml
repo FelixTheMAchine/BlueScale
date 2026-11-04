@@ -1,22 +1,35 @@
 name: Render BlueScale keepalive
 
 on:
+  # Off the top of the hour to reduce GitHub Actions scheduler congestion.
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '2-59/5 * * * *'
   workflow_dispatch:
+  # Verify the monitor really runs when this file changes on main.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/render-keepalive.yml'
 
 permissions: {}
+
+concurrency:
+  group: bluescale-keepalive
+  cancel-in-progress: false
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 4
     steps:
-      - name: Request BlueScale health endpoint
+      - name: Ping BlueScale and verify database-backed health
         run: |
-          curl --fail --silent --show-error --max-time 40 --retry 2 --retry-delay 5 \
+          curl --fail --silent --show-error --location \
+            --connect-timeout 15 --max-time 85 \
+            --retry 2 --retry-delay 5 --retry-all-errors \
+            --user-agent 'BlueScale-keepalive/1.2' \
             https://bluescale-das-online.onrender.com/api/health
 
-# Scheduled workflows only run on the default branch, and GitHub may delay or skip
-# scheduled runs under load. This does not guarantee uptime or keep Postgres free
-# database instances from expiring. Use an external uptime monitor for alerting.
+# Free Render web services can still restart, spin down or reach monthly limits.
+# GitHub scheduled jobs may be delayed or skipped; this is best-effort, not
+# guaranteed 24/7 uptime. Render's free Postgres expires independently.
