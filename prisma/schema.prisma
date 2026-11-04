@@ -92,6 +92,7 @@ model Member {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   user        User?
+  coordinatedEvents EventCoordinatorMember[]
   availability MemberAvailability[]
   skills       MemberSkill[]
   assignments  ShiftAssignment[]
@@ -155,6 +156,7 @@ model Event {
   schedules ScheduleVersion[]
   generations ScheduleGeneration[]
   coordinators EventCoordinator[]
+  coordinatorMembers EventCoordinatorMember[]
   @@index([startsAt, status])
 }
 model Workstation {
@@ -286,6 +288,18 @@ model EventCoordinator {
   assignedAt DateTime @default(now())
   @@id([eventId, userId])
   @@index([userId])
+}
+
+// Coordinator nominations can reference ordinary team members even before they
+// have a login; accounts with EVENT_COORDINATOR role get separate scoped access.
+model EventCoordinatorMember {
+  eventId String
+  memberId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  @@id([eventId, memberId])
+  @@index([memberId])
 }
 
 // Persistent throttle for auth; only salted email HMAC, no raw IPs or emails.
