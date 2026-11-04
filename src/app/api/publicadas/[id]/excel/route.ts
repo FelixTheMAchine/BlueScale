@@ -10,11 +10,11 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
     const event=await prisma.event.findFirst({
       where:{id,status:{not:'CANCELLED'},schedules:{some:{status:'PUBLISHED'}}},
       include:{
-        shifts:{include:{workstation:true}},
+        shifts:{where:{workstation:{archivedAt:null}},include:{workstation:true}},
         schedules:{
           where:{status:'PUBLISHED'},
           orderBy:{number:'desc'},take:1,
-          include:{assignments:{include:{
+          include:{assignments:{where:{shift:{workstation:{archivedAt:null}}},include:{
             member:{include:{department:true}},confirmation:true,
             shift:{include:{workstation:true}},
           }},generations:{take:1,orderBy:{createdAt:'desc'}}},

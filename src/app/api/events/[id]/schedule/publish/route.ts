@@ -9,7 +9,7 @@ export async function POST(req:NextRequest,context:{params:Promise<{id:string}>}
  const result=await prisma.$transaction(async tx=>{
   const v=await tx.scheduleVersion.findFirst({where:{id:versionId,eventId:id,status:'DRAFT'},include:{assignments:true}});
   if(!v)throw new HttpError(409,'A escala não é mais um rascunho');if(v.revision!==revision)throw new HttpError(409,'Versão desatualizada.');
-  const {members,slots,rules}=await loadInputs(tx,id);const assigned=v.assignments.map(a=>({memberId:a.memberId,shiftId:a.shiftId}));
+  const {members,slots,rules}=await loadInputs(tx,id);const activeIds=new Set(slots.map(s=>s.id));const assigned=v.assignments.filter(a=>activeIds.has(a.shiftId)).map(a=>({memberId:a.memberId,shiftId:a.shiftId}));
   const errors=validateSchedule(members,slots,rules,assigned);if(errors.length)throw new HttpError(409,errors.join('; '));
   const uncovered=slots.filter(s=>assigned.filter(a=>a.shiftId===s.id).length<s.minPeople);
   if(uncovered.length&&!acceptIncomplete)throw new HttpError(409,`Existem ${uncovered.length} turnos descobertos. Publicação exige confirmação explícita.`);

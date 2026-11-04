@@ -11,7 +11,7 @@ export async function PATCH(req:NextRequest,{params}:Context){try{
  const {id,workstationId}=await params;
  const input=await jsonBody(req);
  const result=await prisma.$transaction(async tx=>{
-  const current=await tx.workstation.findFirst({where:{id:workstationId,eventId:id},include:{event:{select:{status:true}},shifts:{include:{requirements:true},orderBy:{startsAt:'asc'}}}});
+  const current=await tx.workstation.findFirst({where:{id:workstationId,eventId:id,archivedAt:null},include:{event:{select:{status:true}},shifts:{include:{requirements:true},orderBy:{startsAt:'asc'}}}});
   if(!current)throw new HttpError(404,'Posto não encontrado.');
   if(['COMPLETED','CANCELLED'].includes(current.event.status))throw new HttpError(409,'Evento encerrado; postos bloqueados.');
   const previousSkills=current.shifts[0]?.requirements.map(r=>r.skillId)||[];
@@ -78,16 +78,30 @@ export async function PATCH(req:NextRequest,{params}:Context){try{
  return ok(result);
 }catch(e){return fail(e)}}
 
+/** Hard-delete only unscheduled workstations. Archive once any schedule exists,
+ * preserving published assignments, attendance, confirmations and past exports.
+ */
 export async function DELETE(req:NextRequest,{params}:Context){try{
  const actor=await requireRole(STAFF);sameOrigin(req);const {id,workstationId}=await params;
- await prisma.$transaction(async tx=>{
+ const result=await prisma.$transaction(async tx=>{
   const current=await tx.workstation.findFirst({where:{id:workstationId,eventId:id},include:{event:{select:{status:true}}}});
   if(!current)throw new HttpError(404,'Posto não encontrado.');
-  if(['PUBLISHED','COMPLETED','CANCELLED'].includes(current.event.status))throw new HttpError(409,'Não é possível excluir postos de um evento publicado ou encerrado.');
+  if(current.archivedAt)return {removed:true,preservedHistory:true,archived:true};
+  if(['COMPLETED','CANCELLED'].includes(current.event.status))throw new HttpError(409,'Evento encerrado; não é possível alterar seus postos.');
   const schedules=await tx.scheduleVersion.count({where:{eventId:id}});
-  if(schedules)throw new HttpError(409,'Este evento já possui uma escala gerada. Excluir o posto apagaria referências de turnos; crie outro evento para mudanças estruturais.');
-  await tx.workstation.delete({where:{id:workstationId}});
-  await tx.auditLog.create({data:{actorId:actor.id,action:'DELETE',entity:'Workstation',entityId:workstationId}});
+  if(!schedules){
+   await tx.workstation.delete({where:{id:workstationId}});
+   await tx.auditLog.create({data:{actorId:actor.id,action:'DELETE',entity:'Workstation',entityId:workstationId,details:{preservedHistory:false}}});
+   return {removed:true,preservedHistory:false,archived:false};
+  }
+  // Do not delete shifts linked to saved schedules. Hiding active shifts must
+  // never cascade into confirmations, attendance, swaps or published assignments.
+  await tx.workstation.update({where:{id:workstationId},data:{archivedAt:new Date()}});
+  // Invalidate stale draft editors; published versions and their revisions remain.
+  await tx.scheduleVersion.updateMany({where:{eventId:id,status:'DRAFT'},data:{revision:{increment:1}}});
+  await tx.swapRequest.updateMany({where:{status:'PENDING',assignment:{shift:{workstationId}}},data:{status:'CANCELLED'}});
+  await tx.auditLog.create({data:{actorId:actor.id,action:'ARCHIVE',entity:'Workstation',entityId:workstationId,details:{preservedHistory:true,schedules}}});
+  return {removed:true,preservedHistory:true,archived:true};
  },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
- return ok({removed:true});
+ return ok(result);
 }catch(e){return fail(e)}}

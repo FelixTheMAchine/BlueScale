@@ -10,10 +10,11 @@ export async function POST(req:NextRequest,context:{params:Promise<{id:string}>}
   if(!slots.length)throw new HttpError(400,'Cadastre ao menos um posto primeiro.');
   if(['COMPLETED','CANCELLED'].includes(event.status))throw new HttpError(409,'Evento não aceita escalas.');
   const existing=await tx.scheduleVersion.findFirst({where:{eventId:id,status:'DRAFT'},orderBy:{number:'desc'},include:{assignments:true}});
-  const locked=existing?.assignments.filter(a=>a.locked).map(a=>({memberId:a.memberId,shiftId:a.shiftId,locked:true}))||[];
+  const activeIds=new Set(slots.map(slot=>slot.id));
+  const locked=existing?.assignments.filter(a=>a.locked&&activeIds.has(a.shiftId)).map(a=>({memberId:a.memberId,shiftId:a.shiftId,locked:true}))||[];
   const result=await solveSchedule(members,slots,rules,locked);
   const version=existing||await tx.scheduleVersion.create({data:{eventId:id,number:(await tx.scheduleVersion.aggregate({where:{eventId:id},_max:{number:true}}))._max.number!+1 || 1}});
-  if(existing){await tx.shiftAssignment.deleteMany({where:{scheduleVersionId:version.id}});await tx.scheduleVersion.update({where:{id:version.id},data:{revision:{increment:1}}});}
+  if(existing){await tx.shiftAssignment.deleteMany({where:{scheduleVersionId:version.id,shiftId:{in:[...activeIds]}}});await tx.scheduleVersion.update({where:{id:version.id},data:{revision:{increment:1}}});}
   if(result.assignments.length)await tx.shiftAssignment.createMany({data:result.assignments.map(a=>({scheduleVersionId:version.id,memberId:a.memberId,shiftId:a.shiftId,locked:!!a.locked}))});
   await tx.scheduleGeneration.create({data:{eventId:id,scheduleVersionId:version.id,uncovered:result.uncovered as unknown as Prisma.InputJsonValue,algorithm:result.algorithm}});
   await tx.event.update({where:{id},data:{status:'GENERATED'}});

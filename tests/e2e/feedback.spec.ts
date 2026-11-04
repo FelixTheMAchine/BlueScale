@@ -198,3 +198,74 @@ test('posto: mínimo e ideal podem mudar após gerar e publicar sem apagar turno
  expect(publishedAfter.id).toBe(draftAfter.id);
  expect(publishedAfter.assignments).toHaveLength(draftBefore.assignments.length);
 });
+
+
+test('exclui posto publicado na tela sem apagar presença ou histórico', async ({ page }) => {
+ test.skip(!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD, 'Necessita credenciais de teste');
+ await page.goto('/login');
+ await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
+ await page.getByLabel('Senha').fill(process.env.ADMIN_PASSWORD!);
+ await page.getByRole('button',{name:'Entrar no BlueScale'}).click();
+ await expect(page.getByText('Uma escala mais justa.')).toBeVisible();
+
+ const token=Date.now().toString(36);
+ const departments=await (await page.request.get('/api/departments')).json();
+ const createdMember=await page.request.post('/api/members',{data:{
+  identifier:'arch'+token,fullName:'Arquivamento Teste '+token,
+  email:'arch'+token+'@example.com',departmentId:departments[0].id,
+  preferredPeriod:'ANY',skillIds:[],
+ }});
+ expect(createdMember.status()).toBe(201);
+ const memberId=(await createdMember.json()).id;
+ const start=new Date(Date.now()+7*24*60*60*1000);start.setUTCHours(14,0,0,0);
+ const end=new Date(start.getTime()+60*60000);
+ const createdEvent=await page.request.post('/api/events',{data:{
+  name:'Exclusao E2E '+token,location:'Campus',description:'Arquivo protegido',
+  startsAt:start.toISOString(),endsAt:end.toISOString(),maxMinutesPerMember:360,maxShiftsPerMember:4,minRestMinutes:0
+ }});
+ expect(createdEvent.status()).toBe(201);
+ const eventId=(await createdEvent.json()).id;
+ const station=await page.request.post('/api/events/'+eventId+'/workstations',{data:{
+  name:'Posto arquivável',minPeople:1,idealPeople:1,slotMinutes:60,priority:1,skillIds:[]
+ }});
+ expect(station.status()).toBe(201);
+ const stationId=(await station.json()).id;
+ const available=await page.request.post('/api/events/'+eventId+'/availability',{data:{
+  memberId,startAt:start.toISOString(),endAt:end.toISOString(),available:true
+ }});
+ expect(available.status()).toBe(200);
+ const generated=await page.request.post('/api/events/'+eventId+'/schedule/generate',{data:{}});
+ expect(generated.status()).toBe(200);
+ const draft=await (await page.request.get('/api/events/'+eventId+'/schedule')).json();
+ expect(draft.assignments).toHaveLength(1);
+ const published=await page.request.post('/api/events/'+eventId+'/schedule/publish',{data:{
+  versionId:draft.id,revision:draft.revision,acceptIncomplete:false
+ }});
+ expect(published.status()).toBe(200);
+ const assignmentId=draft.assignments[0].id;
+ const attendance=await page.request.post('/api/assignments/'+assignmentId+'/attendance',{data:{status:'PRESENT'}});
+ expect(attendance.status()).toBe(200);
+
+ await page.goto('/eventos/'+eventId);
+ await expect(page.getByText('Posto arquivável')).toBeVisible();
+ page.once('dialog', dialog=>void dialog.accept());
+ await page.getByRole('button',{name:'Excluir'}).click();
+ await expect(page.getByText(/histórico preservados/i)).toBeVisible();
+ await expect(page.getByText('Posto arquivável')).toHaveCount(0);
+ const eventAfter=await (await page.request.get('/api/events/'+eventId)).json();
+ expect(eventAfter.workstations).toHaveLength(0);
+ expect(eventAfter.shifts).toHaveLength(0);
+ const current=await (await page.request.get('/api/events/'+eventId+'/schedule')).json();
+ expect(current.assignments).toHaveLength(0);
+ const history=await (await page.request.get('/api/events/'+eventId+'/schedule?includeArchived=1')).json();
+ expect(history.assignments).toHaveLength(1);
+ expect(history.assignments[0].id).toBe(assignmentId);
+ expect(history.assignments[0].attendance.status).toBe('PRESENT');
+ const archivedEdit=await page.request.patch('/api/events/'+eventId+'/workstations/'+stationId,{data:{name:'Renomear arquivado'}});
+ expect(archivedEdit.status()).toBe(404);
+ const stalePresence=await page.request.post('/api/assignments/'+assignmentId+'/attendance',{data:{status:'ABSENT'}});
+ expect(stalePresence.status()).toBe(404);
+ const count=(await (await page.request.get('/api/events')).json()).find((ev:{id:string})=>ev.id===eventId)._count;
+ expect(count.workstations).toBe(0);
+ expect(count.shifts).toBe(0);
+});

@@ -8,7 +8,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  return ok(await prisma.swapRequest.findMany({where:{assignment:{scheduleVersion:{eventId:id,status:'PUBLISHED'}},...(actor.role==='MEMBER'?{requesterId:actor.memberId||'__'}:{})},select:{id:true,status:true,createdAt:true,reason:true,requester:{select:{fullName:true}},target:{select:{fullName:true}},assignment:{select:{shift:{select:{startsAt:true,workstation:{select:{name:true}}}}}}},orderBy:{createdAt:'desc'},take:100}));}catch(e){return fail(e)}}
 export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>}){try{const actor=await requireRole(['ADMIN','PEOPLE','EVENT_COORDINATOR','MEMBER']);const {id}=await params;await requireEventAccess(actor,id);const data=input.parse(await jsonBody(req));
  const result=await prisma.$transaction(async tx=>{
-  const a=await tx.shiftAssignment.findFirst({where:{id:data.assignmentId,scheduleVersion:{eventId:id,status:'PUBLISHED'}},include:{scheduleVersion:true}});
+  const a=await tx.shiftAssignment.findFirst({where:{id:data.assignmentId,scheduleVersion:{eventId:id,status:'PUBLISHED'},shift:{workstation:{archivedAt:null}}},include:{scheduleVersion:true}});
   if(!a)throw new HttpError(404,'Turno publicado não encontrado.');
   if(actor.memberId!==a.memberId)throw new HttpError(403,'Somente o escalado pode solicitar troca.');
   if(a.memberId===data.targetId)throw new HttpError(400,'Escolha outra pessoa.');

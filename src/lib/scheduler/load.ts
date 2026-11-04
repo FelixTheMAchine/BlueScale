@@ -4,9 +4,9 @@ export async function loadInputs(tx: Prisma.TransactionClient, eventId: string) 
  const [event, members, shifts] = await Promise.all([
   tx.event.findUniqueOrThrow({where:{id:eventId}}),
   tx.member.findMany({where:{status:'ACTIVE'},include:{skills:true,preference:true,availability:{where:{eventId}}}}),
-  tx.shift.findMany({where:{eventId},include:{workstation:true,requirements:true},orderBy:[{startsAt:'asc'},{workstation:{name:'asc'}}]})
+  tx.shift.findMany({where:{eventId,workstation:{archivedAt:null}},include:{workstation:true,requirements:true},orderBy:[{startsAt:'asc'},{workstation:{name:'asc'}}]})
  ]);
- const overlaps=await tx.shiftAssignment.findMany({where:{scheduleVersion:{status:'PUBLISHED'},shift:{eventId:{not:eventId},startsAt:{lt:event.endsAt},endsAt:{gt:event.startsAt}}},select:{memberId:true,shift:{select:{startsAt:true,endsAt:true}}}});
+ const overlaps=await tx.shiftAssignment.findMany({where:{scheduleVersion:{status:'PUBLISHED'},shift:{eventId:{not:eventId},workstation:{archivedAt:null},startsAt:{lt:event.endsAt},endsAt:{gt:event.startsAt}}},select:{memberId:true,shift:{select:{startsAt:true,endsAt:true}}}});
  const inputs=adapt(members,shifts,{maxMinutesPerMember:event.maxMinutesPerMember,maxShiftsPerMember:event.maxShiftsPerMember,minRestMinutes:event.minRestMinutes});
  // Histórico confirmado de outros eventos (não usar dados futuros ou versões arquivadas).
  const history=await tx.shiftAssignment.findMany({where:{scheduleVersion:{status:'PUBLISHED',eventId:{not:eventId}},shift:{endsAt:{lte:event.startsAt}}},select:{memberId:true,shift:{select:{startsAt:true,endsAt:true}}}});
