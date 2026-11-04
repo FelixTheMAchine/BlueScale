@@ -14,6 +14,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
       where:{eventId:id,status:'PUBLISHED',event:{status:{not:'CANCELLED'}}},
       orderBy:{number:'desc'},
       select:{number:true,assignments:{
+        where:{shift:{workstation:{archivedAt:null}}},
         select:{
           member:{select:{fullName:true,department:{select:{name:true}}}},
           shift:{select:{startsAt:true,endsAt:true,workstation:{select:{name:true}}}},
