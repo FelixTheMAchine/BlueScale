@@ -19,7 +19,9 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
   if(decision==='APPROVED'){
    if(!swap.targetId)throw new HttpError(400,'Escolha um substituto para aprovação.');
    const {members,slots,rules}=await loadInputs(tx,version.eventId);
-   const proposed=version.assignments.filter(a=>a.id!==swap.assignmentId).map(a=>({memberId:a.memberId,shiftId:a.shiftId}));
+   const activeIds=new Set(slots.map(s=>s.id));
+   if(!activeIds.has(swap.assignment.shiftId))throw new HttpError(409,'Este posto foi excluído da operação.');
+   const proposed=version.assignments.filter(a=>a.id!==swap.assignmentId&&activeIds.has(a.shiftId)).map(a=>({memberId:a.memberId,shiftId:a.shiftId}));
    proposed.push({memberId:swap.targetId,shiftId:swap.assignment.shiftId});
    const errors=validateSchedule(members,slots,rules,proposed);
    if(errors.length)throw new HttpError(409,`Troca inviável: ${errors.join('; ')}`);
