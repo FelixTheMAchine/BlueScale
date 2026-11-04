@@ -18,6 +18,7 @@ export default async function PublishedEventPage({params}:{params:Promise<{id:st
       number:true, publishedAt:true,
       event: {select:{name:true,location:true,startsAt:true,endsAt:true}},
       assignments: {
+        where: { shift: { workstation: { archivedAt: null } } },
         select: {
           id:true,
           member:{select:{fullName:true,department:{select:{name:true}}}},
