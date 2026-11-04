@@ -64,7 +64,7 @@ test('GP seleciona coordenadores da equipe mesmo sem ser ADMIN, e nome persiste'
  expect(after.members.some((m:{memberId:string})=>m.memberId===memberId)).toBe(false);
 });
 
-test('menus sem corações; grafite do coldzera aparece como detalhe na página inicial',async({page})=>{
+test('menus sem corações; captura real da Mirage aparece na página inicial',async({page})=>{
  test.skip(!process.env.ADMIN_EMAIL||!process.env.ADMIN_PASSWORD,'Credenciais de teste necessárias');
  await page.goto('/login');
  await page.getByLabel('E-mail ou usuário').fill(process.env.ADMIN_EMAIL!);
@@ -74,13 +74,15 @@ test('menus sem corações; grafite do coldzera aparece como detalhe na página 
 
  const desktop=page.locator('nav[aria-label="Navegação principal"]');
  await expect(desktop.locator('svg text')).toHaveCount(0);
- const art=page.getByRole('img',{name:'Arte inspirada no grafite da AWP alada do coldzera na Mirage'});
+ const art=page.getByRole('img',{name:'Captura real do Counter-Strike na Mirage mostrando o grafite do coldzera pintado na parede'});
  await expect(art).toBeVisible();
- await expect(art).toHaveAttribute('src','/coldzera-graffiti.svg');
- await expect(page.getByText('MIRAGE · 2016')).toBeVisible();
- const asset=await page.request.get('/coldzera-graffiti.svg');
+ await expect(art).toHaveAttribute('src','/coldzera-ingame.jpg');
+ await expect.poll(()=>art.evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true);
+ const asset=await page.request.get('/coldzera-ingame.jpg');
  expect(asset.status()).toBe(200);
- expect(await asset.text()).toContain('Grafite inspirado na AWP alada de coldzera');
+ expect(asset.headers()['content-type']).toContain('image/jpeg');
+ expect((await asset.body()).length).toBeGreaterThan(3000);
+ expect((await page.request.get('/coldzera-graffiti.svg')).status()).toBe(404);
 
  await page.setViewportSize({width:390,height:844});
  const mobile=page.locator('nav[aria-label="Navegação do aplicativo"]');
