@@ -31,10 +31,12 @@ export default async function Home(){const user=await ensurePage();const canMana
    </section>
    <section className="panel p-6"><p className="eyebrow">FLUXO DE TRABALHO</p><h2 className="text-xl font-bold mt-1 mb-6">{canManage?'Do cadastro à festa':'Tudo para participar'}</h2><div className="space-y-5">{(canManage?[['01','Organize a equipe','Cadastre pessoas e diretorias'],['02','Planeje os postos','Defina horários e demandas'],['03','Gere a escala','Valide cobertura e conflitos'],['04','Exporte e publique','Compartilhe com clareza']]:[['01','Consulte suas festas','Veja os eventos disponíveis'],['02','Informe disponibilidade','Participe das escalas abertas'],['03','Confira seus turnos','Veja os horários publicados']]).map(([n,t,d])=><div className="flex gap-4" key={n}><span className="h-9 w-9 rounded-lg bg-[#2a79fb1b] text-[#438bff] font-extrabold text-sm flex items-center justify-center shrink-0">{n}</span><div><p className="font-bold text-sm">{t}</p><p className="muted text-xs mt-1">{d}</p></div></div>)}</div><div className="rounded-xl mt-8 p-4 hero-blue"><div className="flex gap-2 items-center"><BarChart3 size={18}/><p className="font-bold text-sm">Feito para a GP, de verdade.</p></div><p className="text-xs text-[#cedfff] mt-2">Restrições obrigatórias sempre prevalecem sobre preferências.</p></div>
    <div className="mt-5 flex justify-end">
-    <figure className="w-[220px] max-w-full rotate-[-1deg] rounded-lg border border-[#d2c7b4] bg-[#ece6da] px-3 pt-2 pb-2 shadow-[0_4px_12px_#1a182010]" title="Easter egg: coldzera, Mirage, MLG Columbus 2016">
-     <Image src="/coldzera-graffiti.svg" alt="Arte inspirada no grafite da AWP alada do coldzera na Mirage" width={680} height={344} unoptimized className="block h-auto w-full max-h-[116px] object-contain opacity-90"/>
-     <figcaption className="text-right text-[9px] font-bold tracking-[.15em] text-[#746b61]">MIRAGE · 2016</figcaption>
-    </figure>
+    <Image
+     src="/coldzera-ingame.jpg"
+     alt="Captura real do Counter-Strike na Mirage mostrando o grafite do coldzera pintado na parede"
+     width={1280} height={720} unoptimized
+     className="block w-full max-w-[320px] h-auto rounded-lg"
+    />
    </div></section>
   </div>
  </div>
